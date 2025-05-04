@@ -1,3 +1,6 @@
+export GOPATH="$HOME/go"
+export GOROOT="$(brew --prefix golang)/libexec"
+
 export PATH="$PATH:/Users/max/Library/Python/3.9/bin"
 export PATH="$PATH:/opt/homebrew/bin"
 export PATH="$PATH:$HOME/go/bin"
@@ -5,9 +8,11 @@ export PATH="$PATH:$PWD/node_modules/.bin"
 export PATH="$PATH:$HOME/emsdk"
 export PATH="$PATH:$HOME/emsdk/upstream/emscripten"
 export PATH="$PATH:/Library/TeX/texbin"
+export PATH="$PATH:$HOME/depot_tools"
+export PATH="$PATH:$(go env GOPATH)/bin"
+export PATH="$PATH:$HOME/.config/dotfiles/bin"
 
 export HOMEBREW_NO_ENV_HINTS=1
-export GOPATH="$HOME/go"
 export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
 
 source $HOME/.config/git-yolo/install.sh
