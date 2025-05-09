@@ -11,6 +11,7 @@ export PATH="$PATH:/Library/TeX/texbin"
 export PATH="$PATH:$HOME/depot_tools"
 export PATH="$PATH:$(go env GOPATH)/bin"
 export PATH="$PATH:$HOME/.config/dotfiles/bin"
+export PATH="$PATH:$HOME/.npm-global/bin"
 
 export HOMEBREW_NO_ENV_HINTS=1
 export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
