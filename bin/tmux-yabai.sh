@@ -23,7 +23,7 @@ case $1 in
 esac
 
 if [[ $(tmux display-message -p "#{pane_at_${PANE_DIRECTION}}") == "0" ]]; then
-    tmux select-pane ${DIRECTION_FLAG}
+    tmux select-pane ${DIRECTION_FLAG} &>/dev/null
 else
-    yabai -m window --focus ${YABAI_DIRECTION} || true
+    yabai -m window --focus ${YABAI_DIRECTION} >/dev/null 2>&1 || true
 fi
