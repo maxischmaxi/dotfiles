@@ -1,5 +1,11 @@
 export GOPATH="$HOME/go"
-export GOROOT="$(brew --prefix golang)/libexec"
+
+if [[ "$(uname)" == "Darwin" ]]; then
+  export GOROOT="$(brew --prefix golang)/libexec"
+else
+  export GOROOT="/usr/lib/go"
+fi
+
 
 export PATH="$PATH:/Users/max/Library/Python/3.9/bin"
 export PATH="$PATH:/opt/homebrew/bin"
