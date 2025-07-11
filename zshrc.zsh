@@ -20,6 +20,10 @@ export PATH="$PATH:$HOME/.config/dotfiles/bin"
 export PATH="$PATH:$HOME/.npm-global/bin"
 export PATH="$PATH:$HOME/mongodb/bin"
 
+if [[ "$(uname)" == "Linux" ]]; then
+  export PATH="$PATH:$HOME/.local/bin"
+fi
+
 export HOMEBREW_NO_ENV_HINTS=1
 export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
 
@@ -38,9 +42,11 @@ alias gca="git commit -a"
 alias ca="calendar-export"
 alias python="/opt/homebrew/bin/python3"
 
-. $HOMEBREW_PREFIX/etc/profile.d/z.sh
+if [[ "$(uname)" == "Darwin" ]]; then
+  . $HOMEBREW_PREFIX/etc/profile.d/z.sh
+fi
 
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+[ -f $HOME/.config/dotfiles/fzf.zsh ] && source $HOME/.config/dotfiles/fzf.zsh
 
 if [ -z "$TMUX" ]; then
   tmux attach || tmux new
