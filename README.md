@@ -14,3 +14,12 @@ source $HOME/.config/dotiles/zshrc.zsh
 chmod +x ./bin/dump.sh
 ./bin/dump.sh
 ```
+
+## gitconfig
+
+add the following to your `~/.gitconfig` file:
+
+```ini
+[include]
+    path = $HOME/.config/dotfiles/.gitconfig
+```

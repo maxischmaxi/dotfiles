@@ -1,0 +1,16 @@
+[user]
+	email = max@jeschek.dev
+	name = maxischmaxi
+[pull]
+	rebase = true
+[rerere]
+	enabled = true
+[advice]
+	skippedCherryPicks = false
+[init]
+	defaultBranch = main
+[url "https://${GH_TOKEN}@github.com/"]
+	insteadOf = https://github.com
+[alias]
+	yolo = !git add -A && git commit -am \"`curl -sL http://whatthecommit.com/index.txt`\" && git push -f origin main
+	lg = !git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
