@@ -20,5 +20,5 @@ chmod +x ./bin/dump.sh
 run the following command to set up your git config:
 
 ```sh
-ln -s $HOME/.config/dotfiles/.gitconfig $HOME/.gitconfig
+envsubst < ~/.config/dotfiles/.gitconfig.template > ~/.gitconfig
 ```
