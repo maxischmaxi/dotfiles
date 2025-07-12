@@ -17,9 +17,8 @@ chmod +x ./bin/dump.sh
 
 ## gitconfig
 
-add the following to your `~/.gitconfig` file:
+run the following command to set up your git config:
 
-```ini
-[include]
-    path = $HOME/.config/dotfiles/.gitconfig
+```sh
+ln -s $HOME/.config/dotfiles/.gitconfig $HOME/.gitconfig
 ```
