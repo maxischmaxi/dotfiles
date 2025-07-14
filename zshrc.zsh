@@ -6,8 +6,7 @@ else
   export GOROOT="/usr/lib/go"
 fi
 
-export GOPRIVATE=github.com/maxischmaxi/timetracker-types
-
+export GOPRIVATE=github.com/maxischmaxi/*
 export PATH="$PATH:/Users/max/Library/Python/3.9/bin"
 export PATH="$PATH:/opt/homebrew/bin"
 export PATH="$PATH:$HOME/go/bin"
