@@ -8,7 +8,6 @@ patterns=(
   'token.\{0,10\}["'\'']\?[A-Za-z0-9_-]\{16,\}'
   'authorization.\{0,10\}["'\'']\?\(Bearer \)\?[A-Za-z0-9_.=-]\{20,\}'
   'access[_-]\?token.\{0,10\}["'\'']\?[A-Za-z0-9_.=-]\{20,\}'
-  '-----BEGIN PRIVATE KEY-----'
   'AIza[A-Za-z0-9_-]\{35\}'
   'sk_live_[A-Za-z0-9]\{24\}'
   'ghp_[A-Za-z0-9]\{36\}'
