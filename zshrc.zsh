@@ -6,6 +6,7 @@ else
   export GOROOT="/usr/lib/go"
 fi
 
+export GOPRIVATE=github.com/maxischmaxi/timetracker-types
 
 export PATH="$PATH:/Users/max/Library/Python/3.9/bin"
 export PATH="$PATH:/opt/homebrew/bin"
@@ -24,10 +25,12 @@ if [[ "$(uname)" == "Linux" ]]; then
   export PATH="$PATH:$HOME/.local/bin"
 fi
 
-export HOMEBREW_NO_ENV_HINTS=1
+export ENV=development
+
 export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
 
-source $HOME/.config/git-yolo/install.sh
+source $HOME/.config/dotfiles/git-yolo-install.sh
+source $HOME/.config/dotfiles/git-ai-install.sh
 source $HOME/.config/dotfiles/.tokens
 
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome"
@@ -43,7 +46,8 @@ alias ca="calendar-export"
 alias python="/opt/homebrew/bin/python3"
 
 if [[ "$(uname)" == "Darwin" ]]; then
-  . $HOMEBREW_PREFIX/etc/profile.d/z.sh
+    export HOMEBREW_NO_ENV_HINTS=1
+    . $HOMEBREW_PREFIX/etc/profile.d/z.sh
 fi
 
 [ -f $HOME/.config/dotfiles/fzf.zsh ] && source $HOME/.config/dotfiles/fzf.zsh
