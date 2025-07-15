@@ -1,6 +1,6 @@
 #!/bin/bash
 
-diff=$(git diff --cached)
+diff=$(git diff --cached | head -c 3000)
 
 patterns=(
   'api[_-]\?key.\{0,10\}["'\'']\?[A-Za-z0-9_-]\{16,\}'
@@ -32,6 +32,18 @@ response=$(curl -s https://api.openai.com/v1/responses \
     -H "Authorization: Bearer $OPENAI_API_KEY" \
     -d "$json")
 
-message=$(echo "$response" | jq -r '.output[0].content[0].text')
+error=$(echo "$response" | jq -r '.error.message // empty')
+
+if [ -n "$error" ]; then
+  echo "❌ Fehler bei der API-Anfrage: $error"
+  exit 1
+fi
+
+message=$(echo "$response" | jq -r '.output[0]?.content[0]?.text // empty')
+
+if [ -z "$message" ]; then
+  echo "❌ Keine Antwort von der API erhalten."
+  exit 1
+fi
 
 git commit -m "$message"
