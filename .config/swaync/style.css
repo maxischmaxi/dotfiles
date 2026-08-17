@@ -1,0 +1,440 @@
+/* swaync theme — neutral dark, tuned for a black OLED desktop.
+   Monochrome by default; colour is reserved for critical urgency only. */
+
+/* ── palette ─────────────────────────────────────────────────────────── */
+
+/* near-black surfaces so large areas stay dark on OLED */
+@define-color panel #08080a;
+@define-color surface #0e0e10;
+@define-color surface-hover #16161a;
+
+@define-color border #2c2c33;
+@define-color border-strong #43434d;
+
+/* off-white instead of pure white: less glare, no OLED smearing */
+@define-color text #ececee;
+@define-color text-muted #9a9aa2;
+@define-color text-faint #5e5e67;
+
+@define-color critical #cf5f5f;
+@define-color overlay rgba(0, 0, 0, 0.4);
+
+/* ── base ────────────────────────────────────────────────────────────── */
+
+* {
+  font-family: "Adwaita Sans", "Noto Sans", sans-serif;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+.notification,
+.close-button,
+.notification-action,
+.widget-title > button {
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+/* ── floating popups ─────────────────────────────────────────────────── */
+
+.floating-notifications {
+  background: transparent;
+}
+
+.floating-notifications .notification-row {
+  margin: 0 12px 10px 12px;
+}
+
+.floating-notifications .notification-row:first-child {
+  margin-top: 14px;
+}
+
+/* ── notification card ───────────────────────────────────────────────── */
+
+.notification {
+  background: @surface;
+  border: 1px solid @border;
+  border-radius: 10px;
+  margin: 0;
+  padding: 0;
+  /* invisible on black, but lifts the card off bright windows */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+/* GtkListBoxRow brings its own selection styling — strip it */
+.notification-row,
+.notification-row:selected,
+.notification-row:focus,
+.notification-row:hover,
+.notification-group,
+.notification-group:selected,
+.notification-group:focus {
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.notification-row:hover .notification,
+.notification-row:focus .notification {
+  background: @surface-hover;
+  border-color: @border-strong;
+}
+
+/* the whole card is one big click target — keep it visually flat */
+.notification-default-action {
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+/* square off the bottom when action buttons sit below */
+.notification-default-action:not(:only-child) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.notification-content {
+  background: transparent;
+  padding: 13px 14px;
+}
+
+/* swaync injects a copy button when it spots a code in the body
+   (2FA detection) — keep it from looking like a stock GTK button */
+.notification button:not(.close-button):not(.notification-action) {
+  background: @panel;
+  color: @text-muted;
+  border: 1px solid @border;
+  border-radius: 7px;
+  margin-top: 9px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.notification button:not(.close-button):not(.notification-action):hover {
+  background: @surface-hover;
+  color: @text;
+  border-color: @border-strong;
+}
+
+/* ── text ────────────────────────────────────────────────────────────── */
+
+.summary {
+  font-size: 14px;
+  font-weight: 600;
+  color: @text;
+  margin: 0 0 3px 0;
+}
+
+.body {
+  font-size: 13px;
+  font-weight: 400;
+  color: @text-muted;
+}
+
+/* mono for timestamps keeps digits aligned */
+.time {
+  font-family: "FiraCode Nerd Font Mono", monospace;
+  font-size: 11px;
+  color: @text-faint;
+  margin: 0 8px 0 0;
+}
+
+/* ── images ──────────────────────────────────────────────────────────── */
+
+.image {
+  border-radius: 6px;
+  margin-right: 12px;
+}
+
+.body-image {
+  margin-top: 8px;
+  border-radius: 6px;
+  border: 1px solid @border;
+  background: transparent;
+}
+
+/* ── close button ────────────────────────────────────────────────────── */
+
+.close-button {
+  background: transparent;
+  color: @text-faint;
+  border: none;
+  border-radius: 6px;
+  margin: 7px 7px 0 0;
+  padding: 0;
+  min-width: 22px;
+  min-height: 22px;
+}
+
+.close-button:hover {
+  background: @border;
+  color: @text;
+}
+
+/* ── action buttons ──────────────────────────────────────────────────── */
+
+.notification-action {
+  background: transparent;
+  color: @text-muted;
+  border: none;
+  border-top: 1px solid @border;
+  border-radius: 0;
+  margin: 0;
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.notification-action:not(:first-child) {
+  border-left: 1px solid @border;
+}
+
+.notification-action:hover {
+  background: @surface-hover;
+  color: @text;
+}
+
+.notification-action:first-child {
+  border-bottom-left-radius: 9px;
+}
+
+.notification-action:last-child {
+  border-bottom-right-radius: 9px;
+}
+
+/* ── inline reply ────────────────────────────────────────────────────── */
+
+.inline-reply {
+  margin-top: 8px;
+}
+
+.inline-reply-entry {
+  background: @panel;
+  color: @text;
+  caret-color: @text;
+  border: 1px solid @border;
+  border-radius: 7px;
+  padding: 6px 9px;
+}
+
+.inline-reply-entry:focus {
+  border-color: @border-strong;
+}
+
+.inline-reply-button {
+  background: transparent;
+  color: @text-muted;
+  border: 1px solid @border;
+  border-radius: 7px;
+  margin-left: 6px;
+  padding: 6px 12px;
+}
+
+.inline-reply-button:hover {
+  background: @surface-hover;
+  color: @text;
+}
+
+.inline-reply-button:disabled {
+  color: @text-faint;
+  border-color: @border;
+}
+
+/* ── urgency: only critical earns a colour ───────────────────────────── */
+
+.low .summary,
+.normal .summary {
+  color: @text;
+}
+
+.low .notification,
+.normal .notification {
+  border-left-width: 1px;
+}
+
+.critical .notification {
+  border-left: 2px solid @critical;
+}
+
+.critical .summary {
+  color: @critical;
+}
+
+/* ── control center ──────────────────────────────────────────────────── */
+
+/* panel sits darker than its cards, which is what separates them */
+.control-center {
+  background: @panel;
+  border: 1px solid @border;
+  border-radius: 14px;
+  padding: 6px;
+  color: @text;
+}
+
+.control-center-list {
+  background: transparent;
+  padding: 2px 0;
+}
+
+.control-center .notification-row {
+  margin: 4px 2px;
+}
+
+.control-center .notification {
+  border-radius: 8px;
+}
+
+.control-center-list-placeholder {
+  color: @text-faint;
+  font-size: 13px;
+  padding: 32px 0;
+}
+
+/* dim behind the panel so it reads as a layer above the desktop */
+.blank-window {
+  background: @overlay;
+}
+
+/* ── grouped notifications ───────────────────────────────────────────── */
+
+.notification-group-headers {
+  color: @text-faint;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 2px 6px;
+}
+
+.notification-group-icon {
+  color: @text-faint;
+}
+
+.notification-group-collapse-button,
+.notification-group-close-all-button {
+  background: transparent;
+  color: @text-faint;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.notification-group-collapse-button:hover,
+.notification-group-close-all-button:hover {
+  background: @surface-hover;
+  color: @text;
+}
+
+/* ── title widget (holds "clear all") ────────────────────────────────── */
+
+.widget-title {
+  margin: 8px 8px 10px 10px;
+  color: @text;
+}
+
+/* the label inherits a heading size from the GTK theme — pin it down */
+.widget-title > label {
+  color: @text;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.widget-title > button {
+  background: transparent;
+  color: @text-muted;
+  border: 1px solid @border;
+  border-radius: 7px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.widget-title > button:hover {
+  background: @surface-hover;
+  color: @text;
+  border-color: @border-strong;
+}
+
+/* ── dnd widget ──────────────────────────────────────────────────────── */
+
+.widget-dnd {
+  margin: 4px 8px 8px 8px;
+  color: @text-muted;
+  font-size: 13px;
+}
+
+.widget-dnd > switch {
+  background: @surface;
+  border: 1px solid @border;
+  border-radius: 12px;
+}
+
+.widget-dnd > switch:checked {
+  background: @border-strong;
+  border-color: @border-strong;
+}
+
+.widget-dnd > switch slider {
+  background: @text-muted;
+  border: none;
+  border-radius: 50%;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 2px;
+}
+
+/* ── scrollbar ───────────────────────────────────────────────────────── */
+
+scrollbar,
+scrollbar trough {
+  background: transparent;
+  border: none;
+}
+
+scrollbar slider {
+  background: @border-strong;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  min-width: 5px;
+  min-height: 30px;
+}
+
+scrollbar slider:hover {
+  background: @text-faint;
+}
+
+/* ── adwaita overrides ───────────────────────────────────────────────── */
+
+/* GTK paints buttons via background-image and its selectors outrank a
+   single class, so the flattening has to be more specific than Adwaita's */
+.notification-row .notification .notification-action,
+.notification-row .notification button:not(.close-button) {
+  background: none;
+  background-image: none;
+  border: none;
+  border-top: 1px solid @border;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.notification-row .notification .notification-action:hover,
+.notification-row .notification button:not(.close-button):hover {
+  background: @surface-hover;
+  background-image: none;
+}
+
+.control-center .widget-title > button {
+  background: none;
+  background-image: none;
+  box-shadow: none;
+}
+
+.control-center .widget-title > button:hover {
+  background: @surface-hover;
+  background-image: none;
+}

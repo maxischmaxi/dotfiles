@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+#
+# diskhog — show what is eating disk space on one filesystem.
+#
+# Never crosses mount points, so `diskhog /` reports the root disk without
+# walking into /stuff or /code. Reads only; it never deletes anything, it
+# just prints the cleanup commands and what they would free.
+#
+# Lives in ~/.config/bin (which is in PATH).
+
+set -uo pipefail
+
+TOP=10
+USE_SUDO=0
+TARGET=/
+DEPTH=5
+
+usage() {
+  cat <<'EOF'
+diskhog — show what is eating disk space on one filesystem.
+
+Usage: diskhog [options] [mountpoint]
+
+  mountpoint       filesystem to scan (default: /)
+
+  -s, --sudo       also measure root-only dirs (docker, containerd, private
+                   journals) — asks for the sudo password
+  -n, --top N      rows per section (default: 10)
+  -h, --help       show this help
+
+The scan walks the whole tree once and takes a minute or two on a large disk.
+EOF
+}
+
+die() { printf 'diskhog: %s\n' "$1" >&2; exit 1; }
+
+while (( $# )); do
+  case "$1" in
+    -s|--sudo) USE_SUDO=1 ;;
+    -n|--top)  shift; [[ ${1:-} =~ ^[0-9]+$ ]] || die "--top needs a number"; TOP=$1 ;;
+    -h|--help) usage; exit 0 ;;
+    --)        shift; break ;;
+    -*)        usage >&2; die "unknown option: $1" ;;
+    *)         TARGET=$1 ;;
+  esac
+  shift
+done
+[[ $# -gt 0 ]] && TARGET=$1
+
+[[ -d $TARGET ]] || die "not a directory: $TARGET"
+TARGET=$(realpath -- "$TARGET")
+MOUNT=$(df --output=target -- "$TARGET" 2>/dev/null | tail -1 | tr -d ' ')
+
+if [[ -t 1 ]]; then
+  B=$'\e[1m'; DIM=$'\e[2m'; R=$'\e[0m'
+else
+  B=''; DIM=''; R=''
+fi
+
+SCAN=$(mktemp "${TMPDIR:-/tmp}/diskhog.XXXXXX") || die "cannot create temp file"
+trap 'rm -f "$SCAN"' EXIT
+
+title() { printf '\n%s%s%s\n' "$B" "$1" "$R"; }
+rule()  { printf '%s%s%s\n' "$DIM" "────────────────────────────────────────────────────" "$R"; }
+
+# bytes for one exact path, empty if it was not scanned
+lookup() { awk -F'\t' -v p="$1" '$2 == p { print $1; exit }' "$SCAN"; }
+
+human() { numfmt --to=iec --suffix=B "${1:-0}" 2>/dev/null || printf '?'; }
+
+# true when a path lives on the filesystem we are scanning
+on_target() {
+  local m
+  m=$(df --output=target -- "$1" 2>/dev/null | tail -1 | tr -d ' ')
+  [[ $m == "$MOUNT" ]]
+}
+
+# rows directly below a path, as "<bytes>\t<path>"
+children() {
+  local parent=${1%/}
+  local want
+  want=$(printf '%s/' "$parent" | tr -cd '/' | wc -c)
+  awk -F'\t' -v p="$parent/" -v want="$want" '
+    index($2, p) == 1 && length($2) > length(p) {
+      n = gsub("/", "/", $2)
+      if (n == want) print $1 "\t" $2
+    }' "$SCAN"
+}
+
+# stdin: "<bytes>\t<path>" — prints size, basename and a relative bar
+fmt_rows() {
+  sort -t$'\t' -k1,1rn | head -n "$TOP" | awk -F'\t' -v W=22 '
+    { b[NR] = $1; p[NR] = $2; if (NR == 1) max = $1 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        n = (max > 0) ? int(b[i] / max * W + 0.5) : 0
+        bar = ""
+        for (j = 0; j < n; j++) bar = bar "#"
+        name = p[i]; sub(/.*\//, "", name)
+        printf "%s\t%s\t%s\n", b[i], name, bar
+      }
+    }' | numfmt -d$'\t' --field=1 --to=iec --suffix=B --padding=8 \
+       | awk -F'\t' '{ printf "  %s  %-26s %s\n", $1, $2, $3 }'
+}
+
+section() {
+  local heading=$1 path=$2
+  local rows
+  rows=$(children "$path")
+  [[ -z $rows ]] && return
+  title "$heading"
+  printf '%s\n' "$rows" | fmt_rows
+}
+
+# ── scan ───────────────────────────────────────────────────────────────────
+if (( USE_SUDO )); then
+  sudo -v || die "sudo required for --sudo"
+  printf '%sScanning %s as root (one pass, this takes a while)…%s\n' "$DIM" "$TARGET" "$R"
+  sudo du -x --block-size=1 -d "$DEPTH" -- "$TARGET" 2>/dev/null > "$SCAN"
+else
+  printf '%sScanning %s (one pass, this takes a while)…%s\n' "$DIM" "$TARGET" "$R"
+  du -x --block-size=1 -d "$DEPTH" -- "$TARGET" 2>/dev/null > "$SCAN"
+fi
+[[ -s $SCAN ]] || die "scan produced nothing — is $TARGET readable?"
+
+# ── filesystem summary ─────────────────────────────────────────────────────
+title "Filesystem"
+rule
+df -h --output=source,size,used,avail,pcent,target -- "$TARGET" 2>/dev/null | sed 's/^/  /'
+
+used_b=$(df --output=used --block-size=1 -- "$TARGET" 2>/dev/null | tail -1 | tr -d ' ')
+seen_b=$(lookup "$TARGET")
+seen_b=${seen_b:-0}
+gap=$(( used_b - seen_b ))
+
+# ── the tree ───────────────────────────────────────────────────────────────
+section "Top level of $TARGET" "$TARGET"
+
+# home only makes sense when it lives on the scanned filesystem
+if on_target "$HOME"; then
+  section "$HOME" "$HOME"
+  section "$HOME/.cache" "$HOME/.cache"
+  section "$HOME/.config" "$HOME/.config"
+  section "$HOME/.local/share" "$HOME/.local/share"
+fi
+
+for d in /var /var/cache /var/lib /usr /opt; do
+  [[ -d $d ]] && [[ -n $(lookup "$d") ]] && section "$d" "$d"
+done
+
+# ── docker ─────────────────────────────────────────────────────────────────
+docker_reclaim=''
+if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
+  docker_root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)
+  # only report docker when its data actually sits on the scanned filesystem
+  if [[ -n $docker_root ]] && on_target "$docker_root"; then
+    title "Docker  ($docker_root)"
+    rule
+    docker system df 2>/dev/null | sed 's/^/  /'
+    dangling=$(docker images -f dangling=true -q 2>/dev/null | wc -l)
+    dead=$(docker ps -aq -f status=exited -f status=created 2>/dev/null | wc -l)
+    (( dangling )) && printf '  %s%s untagged <none> images%s\n' "$DIM" "$dangling" "$R"
+    (( dead ))     && printf '  %s%s stopped containers%s\n' "$DIM" "$dead" "$R"
+    # strip the "(85%)" suffix so the column below stays aligned
+    docker_reclaim=$(docker system df --format '{{.Reclaimable}}' 2>/dev/null \
+      | head -1 | awk '{print $1}')
+  fi
+fi
+
+# ── what the scan could not see ────────────────────────────────────────────
+title "Accounting"
+rule
+printf '  %-24s %s\n' 'reported used (df)'  "$(human "$used_b")"
+printf '  %-24s %s\n' 'measured (du)'       "$(human "$seen_b")"
+if (( gap > used_b / 20 )); then
+  printf '  %-24s %s\n' 'not measured'      "$(human "$gap")"
+  if (( ! USE_SUDO )); then
+    printf '\n  %sThe rest sits in directories your user cannot read%s\n' "$DIM" "$R"
+    printf '  %s(on / that is mostly /var/lib/docker). Rerun as: diskhog -s %s%s\n' \
+      "$DIM" "$TARGET" "$R"
+  else
+    printf '\n  %sGap despite root — likely deleted-but-open files. Check:%s\n' "$DIM" "$R"
+    printf '  %slsof -nP +L1 2>/dev/null | sort -k7 -rn | head%s\n' "$DIM" "$R"
+  fi
+fi
+
+# ── cleanup candidates ─────────────────────────────────────────────────────
+MIN=$(( 1024 * 1024 * 1024 ))   # only suggest things worth more than 1G
+
+candidates=()
+add() {
+  local bytes=$1 label=$2 cmd=$3
+  [[ -z $bytes ]] && return
+  (( bytes < MIN )) && return
+  candidates+=("$bytes"$'\t'"$label"$'\t'"$cmd")
+}
+
+# docker reports SI units ("39.56GB"); fold it into the same byte-sorted list
+if [[ -n $docker_reclaim ]]; then
+  add "$(numfmt --from=si "${docker_reclaim%B}" 2>/dev/null)" \
+    'docker images/containers' 'docker image prune -a && docker container prune'
+fi
+
+add "$(lookup /var/cache/pacman/pkg)" 'pacman package cache' 'paccache -rk2'
+add "$(lookup "$HOME/.cache/yay")"    'yay build cache'      'yay -Sc'
+add "$(lookup "$HOME/.npm")"          'npm cache'            'npm cache clean --force'
+add "$(lookup "$HOME/.cache/pip")"    'pip cache'            'pip cache purge'
+add "$(lookup "$HOME/.cache/uv")"     'uv cache'             'uv cache clean'
+add "$(lookup "$HOME/.cache/go-build")" 'go build cache'     'go clean -cache'
+
+if [[ -d /var/log/journal ]] && on_target /var/log/journal; then
+  journal_b=$(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMGT]' | head -1)
+  if [[ -n $journal_b ]]; then
+    journal_bytes=$(numfmt --from=iec "$journal_b" 2>/dev/null)
+    add "${journal_bytes:-0}" 'systemd journal' 'journalctl --vacuum-size=500M'
+  fi
+fi
+
+if (( ${#candidates[@]} )); then
+  title "Reclaimable"
+  rule
+  while IFS=$'\t' read -r bytes label cmd; do
+    printf '  %-9s %-26s %s\n' "$(human "$bytes")" "$label" "$cmd"
+  done < <(printf '%s\n' "${candidates[@]}" | sort -t$'\t' -k1,1rn)
+  printf '\n  %sNothing was deleted. Review before running any of these —%s\n' "$DIM" "$R"
+  printf '  %s`docker volume prune` in particular can drop real database data.%s\n' "$DIM" "$R"
+fi
+
+printf '\n'

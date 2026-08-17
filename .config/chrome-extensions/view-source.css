@@ -1,0 +1,148 @@
+/* Styling für die formatierte Quelltext-Ansicht (view-source.html).
+   Dunkles GitHub-Schema, passend zum Patch-Viewer. */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0d1117;
+  color: #c9d1d9;
+  font: 13px/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    monospace;
+}
+
+/* ---- Toolbar ---------------------------------------------------------- */
+.vs-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+.vs-title {
+  font-weight: 600;
+  color: #e6edf3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50vw;
+}
+.vs-meta {
+  color: #8b949e;
+  white-space: nowrap;
+}
+.vs-spacer {
+  flex: 1 1 auto;
+}
+.vs-controls {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.vs-controls button {
+  font: inherit;
+  cursor: pointer;
+  color: #c9d1d9;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 3px 12px;
+}
+.vs-controls button:hover {
+  background: #30363d;
+}
+.vs-controls button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ---- Scroll-Fläche + Code-Grid --------------------------------------- */
+.vs-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  position: relative;
+}
+.vs-grid {
+  display: flex;
+  align-items: flex-start;
+  min-width: min-content;
+}
+
+.vs-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 12px 12px 40vh;
+  text-align: right;
+  color: #6e7681;
+  background: #0d1117;
+  border-right: 1px solid #21262d;
+  user-select: none;
+  white-space: pre;
+}
+
+.vs-code {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 12px 16px 40vh;
+  white-space: pre;
+  tab-size: 2;
+}
+/* hljs-Theme-Block neutralisieren, nur Token-Farben behalten. */
+#vs-code.hljs {
+  display: block;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  overflow: visible;
+}
+
+/* ---- Zeilenumbruch-Modus: Gutter weg, Code umbricht ------------------- */
+body.vs-wrap .vs-gutter {
+  display: none;
+}
+body.vs-wrap .vs-grid {
+  min-width: 0;
+}
+body.vs-wrap .vs-code {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---- Zustände --------------------------------------------------------- */
+body.vs-busy .vs-scroll {
+  opacity: 0.4;
+  pointer-events: none;
+}
+body.vs-busy::after {
+  content: "Formatiere …";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 18px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #e6edf3;
+  z-index: 10;
+}
+
+.vs-error {
+  padding: 24px;
+  color: #f85149;
+}

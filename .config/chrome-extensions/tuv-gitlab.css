@@ -1,0 +1,11 @@
+body.tab-width-8 {
+  tab-size: 4 !important;
+}
+
+pre code,
+pre *,
+pre span,
+.tab-width-8,
+pre {
+  tab-size: 4 !important;
+}

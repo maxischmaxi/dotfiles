@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quelltext</title>
+    <link rel="stylesheet" href="vendor/hljs-theme.css" />
+    <link rel="stylesheet" href="view-source.css" />
+  </head>
+  <body>
+    <div class="vs-toolbar">
+      <span class="vs-title" id="vs-title">Quelltext</span>
+      <span class="vs-meta" id="vs-meta"></span>
+      <span class="vs-spacer"></span>
+      <div class="vs-controls" id="vs-controls"></div>
+    </div>
+    <div class="vs-scroll" id="vs-scroll">
+      <div class="vs-grid" id="vs-grid">
+        <pre class="vs-gutter" id="vs-gutter" aria-hidden="true"></pre>
+        <pre class="vs-code"><code class="hljs" id="vs-code"></code></pre>
+      </div>
+    </div>
+
+    <!-- Reihenfolge wichtig: js/css-Beautifier müssen vor dem HTML-Beautifier
+         geladen sein, damit eingebettetes <script>/<style> mitformatiert wird. -->
+    <script src="vendor/highlight.min.js"></script>
+    <script src="vendor/beautify.min.js"></script>
+    <script src="vendor/beautify-css.min.js"></script>
+    <script src="vendor/beautify-html.min.js"></script>
+    <script src="view-source.js"></script>
+  </body>
+</html>

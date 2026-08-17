@@ -1,0 +1,22 @@
+html,
+body {
+  overflow-x: hidden !important;
+}
+
+#related #items,
+#columns #secondary {
+  display: none !important;
+}
+
+#columns #primary {
+  max-width: 100%;
+}
+
+/* #player-container-outer { */
+/*   max-width: 100% !important; */
+/*   max-height: 80vh !important; */
+/**/
+/*   video { */
+/*     max-height: 80vh !important; */
+/*   } */
+/* } */

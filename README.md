@@ -1,0 +1,5 @@
+# Max Dotfiles
+
+```bash
+$ stow .
+```

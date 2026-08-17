@@ -1,0 +1,45 @@
+{
+  "name": "CSS custom styles",
+  "version": "1.0",
+  "manifest_version": 3,
+  "description": "Custom styles for various websites",
+  "permissions": ["contextMenus", "scripting", "storage", "activeTab"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "css": ["global.css"]
+    },
+    {
+      "matches": ["*://www.chess.com/*", "*://chess.com/*"],
+      "css": ["chess.css"]
+    },
+    {
+      "matches": ["*://jira.services.tuv.com/*", "*://*.services.tuv.com/*"],
+      "css": ["tuv.css"]
+    },
+    {
+      "matches": ["*://git.trit.tuv.com/*"],
+      "css": ["tuv-gitlab.css"]
+    },
+    {
+      "matches": ["*://www.youtube.com/*", "*://youtube.com/*"],
+      "css": ["youtube.css"]
+    },
+    {
+      "matches": ["*://*/*.patch"],
+      "js": ["vendor/highlight.min.js", "patch-highlight.js"],
+      "css": ["vendor/hljs-theme.css", "patch-highlight.css"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["*://*.e-spirit.hosting/*"],
+      "js": ["espirit-reload.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ]
+}

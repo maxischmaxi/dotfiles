@@ -1,0 +1,13 @@
+theme = TokyoNight Night
+copy-on-select = clipboard
+# Ghostty schluckt ctrl+v — in nvim stattdessen ctrl+q für Visual-Block.
+keybind = ctrl+v=paste_from_clipboard
+font-size = 15
+font-thicken = true
+shell-integration = zsh
+shell-integration-features = no-cursor
+# Kein "Reloaded the configuration"-Toast — der Shader-Picker reloadet pro Scroll-Schritt.
+app-notifications = no-config-reload
+# Aktiver Shader, gesetzt von ~/.config/bin/tmux-ghostty-shader (prefix+g in tmux).
+# Optionaler Include: fehlt die Datei, läuft Ghostty ohne Shader.
+config-file = ?shaders/active.conf

@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+#
+# tmux-ghostty-shader — fuzzy über die Shader-Ordner und wende einen an.
+#
+# - Ohne Argument: fzf-Picker. Der fokussierte Shader wird sofort live angewendet,
+#   Enter übernimmt ihn, ESC rollt auf den vorherigen Stand zurück.
+# - `--apply <pfad|name|off>`: wendet einen Shader direkt an. Das ist auch der
+#   Callback, den fzf beim Scrollen aufruft.
+#
+# Durchsucht werden mehrere Ordner (siehe SHADER_REPOS). Da Namen mehrfach
+# vorkommen — inside-the-matrix.glsl etwa gibt es in beiden Ordnern mit
+# unterschiedlichem Inhalt — zeigt die Liste jeden Shader als `ordner/datei.glsl`.
+#
+# Der gewählte Shader wird nach shaders/shader.glsl kopiert; shaders/active.conf
+# hängt ihn per `config-file = ?shaders/active.conf` in die Ghostty-Config ein.
+# "off" löscht active.conf — der Include ist optional, Ghostty startet dann
+# schlicht ohne Shader. Angewendet wird per SIGUSR2 (Ghostty reloadet dabei die
+# Config und liest den Shader neu ein).
+#
+# Gebunden an prefix+g, siehe ~/.config/tmux/tmux.conf.
+
+set -uo pipefail
+
+# Reihenfolge = Reihenfolge in der Liste. Überschreibbar via GHOSTTY_SHADER_DIRS
+# (Doppelpunkt-getrennt wie $PATH).
+if [[ -n ${GHOSTTY_SHADER_DIRS:-} ]]; then
+    IFS=: read -ra SHADER_REPOS <<< "$GHOSTTY_SHADER_DIRS"
+else
+    SHADER_REPOS=("$HOME/my-ghostty-shaders" "$HOME/ghostty-shaders")
+fi
+
+SHADERS_DIR="$HOME/.config/ghostty/shaders"
+SHADER_DST="$SHADERS_DIR/shader.glsl"
+ACTIVE_CONF="$SHADERS_DIR/active.conf"
+STATE="$SHADERS_DIR/.active-name"
+LOCK="$SHADERS_DIR/.lock"
+OFF_LABEL="off  ·  kein Shader"
+
+self=$(readlink -f -- "$0")
+mkdir -p "$SHADERS_DIR"
+
+# Kopiert den Shader an seinen Platz, schreibt den Include und reloadet Ghostty.
+# Erwartet "off" oder einen Pfad; ein nackter Dateiname wird der Bequemlichkeit
+# halber in den Ordnern gesucht (erster Treffer gewinnt).
+# Idempotent — mehrfach mit demselben Ziel aufzurufen ist folgenlos.
+apply_shader() {
+    local target=$1 repo
+
+    if [[ $target == off ]]; then
+        rm -f "$ACTIVE_CONF" "$SHADER_DST"
+        : > "$STATE"
+    else
+        if [[ ! -f $target ]]; then
+            for repo in "${SHADER_REPOS[@]}"; do
+                [[ -f $repo/$target ]] && { target=$repo/$target; break; }
+            done
+            [[ -f $target ]] || return 1
+        fi
+        # `#iChannel0 "file://…png"` ist ein Editor-Artefakt (VS Code Shader Toy
+        # u.ä.): dort bindet es ein Standbild als Eingabe ein. Ghostty kennt die
+        # Direktive nicht — sie allein bricht die Kompilierung — und liefert
+        # iChannel0 ohnehin selbst, nämlich den Terminal-Inhalt. Also raus damit.
+        sed '/^[[:space:]]*#iChannel/d' "$target" > "$SHADER_DST"
+        # Absoluter Pfad: relative Pfade sind für custom-shader nicht dokumentiert.
+        printf 'custom-shader = %s\n' "$SHADER_DST" > "$ACTIVE_CONF"
+        printf '%s\n' "$target" > "$STATE"
+    fi
+
+    pkill -USR2 -x ghostty
+    return 0
+}
+
+# Eine Zeile je Shader: "ordner/datei.glsl<TAB>/voller/pfad". fzf zeigt nur das
+# Label (--with-nth=1) und übergibt den Pfad an den Callback.
+# Genommen wird alles auf .glsl plus extensionslose Dateien, die wie ein Shader
+# aussehen (auto-tracking-spotlight hat keine Endung). PNGs, Readme, shader.sh
+# fallen dadurch raus.
+list_shaders() {
+    local repo repo_name file name
+    for repo in "${SHADER_REPOS[@]}"; do
+        [[ -d $repo ]] || continue
+        repo_name=$(basename -- "$repo")
+        while IFS= read -r file; do
+            name=$(basename -- "$file")
+            case $name in
+                *.glsl) ;;
+                *) grep -q mainImage -- "$file" 2>/dev/null || continue ;;
+            esac
+            printf '%s/%s\t%s\n' "$repo_name" "$name" "$file"
+        done < <(find "$repo" -maxdepth 1 -type f \( -name '*.glsl' -o ! -name '*.*' \) 2>/dev/null | sort)
+    done
+}
+
+# fzf-Callback beim Scrollen. Der Lock ist nicht-blockierend: bei gedrückter
+# Pfeiltaste feuert focus schneller, als Ghostty kompilieren kann — dann werden
+# Zwischenstationen verworfen statt aufgestaut. Enter/ESC applyen ohnehin nochmal.
+if [[ ${1:-} == --apply ]]; then
+    exec 9>"$LOCK"
+    flock -n 9 || exit 0
+    apply_shader "${2:-}"
+    exit $?
+fi
+
+mapfile -t entries < <(list_shaders)
+if [[ ${#entries[@]} -eq 0 ]]; then
+    echo "Keine Shader gefunden in: ${SHADER_REPOS[*]}" >&2
+    read -rsn1 -p "Taste drücken …"
+    exit 1
+fi
+entries=("$OFF_LABEL"$'\t'off "${entries[@]}")
+
+previous=$(< "$STATE" 2>/dev/null)
+[[ -n $previous ]] || previous=off
+
+# Cursor auf dem aktiven Shader starten. Ist der nicht mehr in der Liste (Ordner
+# umbenannt, Datei gelöscht), zeigt der Rollback sonst ins Leere -> auf off.
+pos=1
+found=
+for i in "${!entries[@]}"; do
+    if [[ ${entries[$i]#*$'\t'} == "$previous" ]]; then
+        pos=$((i + 1))
+        found=1
+        break
+    fi
+done
+[[ -n $found ]] || previous=off
+
+# Kein --preview: der GLSL-Quelltext sagt nichts über den Effekt, und das Popup
+# soll klein bleiben, damit man den live angewendeten Shader dahinter sieht.
+choice=$(printf '%s\n' "${entries[@]}" | fzf \
+    --delimiter='\t' \
+    --with-nth=1 \
+    --layout=reverse \
+    --border \
+    --border-label=' Ghostty Shaders ' \
+    --header 'Enter: übernehmen   ESC: verwerfen' \
+    --info=inline \
+    --bind "load:pos($pos)" \
+    --bind "focus:execute-silent('$self' --apply {2})")
+status=$?
+
+# Blockierend, im Gegensatz zum Callback oben: der Endzustand muss durchgehen,
+# auch wenn gerade noch ein Live-Preview-Apply läuft.
+exec 9>"$LOCK"
+flock 9
+
+if [[ $status -eq 0 && -n $choice ]]; then
+    apply_shader "${choice#*$'\t'}"
+else
+    apply_shader "$previous"
+fi

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# tmux-sessionizer — fuzzy über die Projekte unter $PROJECTS_DIR und öffne sie als Session.
+# Angelehnt an ThePrimeagens tmux-sessionizer.
+#
+# - Ohne Argument: fzf-Picker über alle Projekt-Ordner unter $PROJECTS_DIR.
+# - Mit Argument: direkter Pfad (z.B. `tmux-sessionizer $PROJECTS_DIR/foo`).
+# Session-Name = Ordnername (Punkte -> Unterstriche). Existiert die Session,
+# wird hingewechselt; sonst wird sie angelegt (create-if-missing).
+
+# $PROJECTS_DIR kommt normalerweise aus der zshrc; beim Aufruf aus einem
+# tmux-Popup kann die Env aber vom Server-Start stammen und die Variable
+# fehlen — deshalb hier dieselbe Quelle sourcen statt den Pfad zu duplizieren.
+source "$HOME/.config/shell/projects-dir.sh"
+
+if [[ $# -eq 1 ]]; then
+    selected=$1
+else
+    selected=$(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' 2>/dev/null | sort | fzf)
+fi
+
+if [[ -z $selected ]]; then
+    exit 0
+fi
+
+selected_name=$(basename "$selected" | tr . _)
+tmux_running=$(pgrep tmux)
+
+# Weder in tmux noch ein Server läuft -> frische Session und attach.
+if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
+    tmux new-session -s "$selected_name" -c "$selected"
+    exit 0
+fi
+
+# Session existiert noch nicht -> detached anlegen.
+if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+    tmux new-session -ds "$selected_name" -c "$selected"
+fi
+
+# Von außerhalb tmux attachen, von innen hinwechseln.
+if [[ -z $TMUX ]]; then
+    tmux attach-session -t "$selected_name"
+else
+    tmux switch-client -t "$selected_name"
+fi

@@ -1,0 +1,180 @@
+/* Styling für die gehighlightete .patch / .diff Ansicht */
+html.phl-active,
+.phl-body {
+  background: #0d1117;
+}
+
+.phl-body {
+  margin: 0;
+  color: #c9d1d9;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.phl-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+.phl-toolbar .phl-title {
+  font-weight: 600;
+  color: #e6edf3;
+}
+.phl-toolbar .phl-count {
+  color: #8b949e;
+}
+.phl-toolbar button {
+  margin-left: auto;
+  font: inherit;
+  cursor: pointer;
+  color: #c9d1d9;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 3px 12px;
+}
+.phl-toolbar button:hover {
+  background: #30363d;
+}
+
+.phl-root {
+  padding: 0 14px 40vh;
+}
+
+.phl-meta {
+  white-space: pre-wrap;
+  padding: 10px 0;
+  color: #8b949e;
+  border-bottom: 1px solid #21262d;
+}
+.phl-mkey {
+  color: #c9d1d9;
+  font-weight: 600;
+}
+.phl-subject {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.phl-file {
+  margin: 14px 0 0;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.phl-fileheader {
+  background: #161b22;
+  padding: 8px 14px;
+  font-weight: 600;
+  color: #e6edf3;
+  border-bottom: 1px solid #30363d;
+}
+.phl-fileheader .phl-lang {
+  float: right;
+  font-weight: 400;
+  font-size: 11px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.phl-filemeta {
+  background: #0d1117;
+  color: #6e7681;
+  padding: 1px 14px;
+  white-space: pre;
+}
+.phl-hunkheader {
+  background: #161b22;
+  color: #79c0ff;
+  padding: 2px 14px;
+  white-space: pre;
+  border-top: 1px solid #21262d;
+}
+
+.phl-line {
+  display: flex;
+  white-space: pre;
+  min-height: 1.4em;
+}
+.phl-gutter {
+  flex: 0 0 auto;
+  width: 1.6em;
+  text-align: center;
+  user-select: none;
+  color: #6e7681;
+}
+.phl-code {
+  flex: 1 1 auto;
+  padding-right: 14px;
+}
+.phl-add {
+  background: rgba(46, 160, 67, 0.15);
+}
+.phl-add .phl-gutter {
+  color: #3fb950;
+  background: rgba(46, 160, 67, 0.3);
+}
+.phl-del {
+  background: rgba(248, 81, 73, 0.15);
+}
+.phl-del .phl-gutter {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.3);
+}
+.phl-nonewline {
+  color: #6e7681;
+  font-style: italic;
+}
+
+.phl-binary {
+  margin: 0;
+  padding: 10px 14px;
+  color: #8b949e;
+  background: #0d1117;
+}
+.phl-binary .phl-binicon {
+  margin-right: 6px;
+}
+.phl-image {
+  padding: 12px 14px;
+}
+.phl-img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  height: auto;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  /* Schachbrett, damit Transparenz sichtbar wird */
+  background: repeating-conic-gradient(#1c2128 0% 25%, #161b22 0% 50%) 50% / 16px 16px;
+}
+.phl-imgcap {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #6e7681;
+}
+.phl-spin {
+  font-style: italic;
+  color: #6e7681;
+}
+
+.phl-raw {
+  margin: 0;
+  padding: 12px 14px;
+  white-space: pre;
+  color: #c9d1d9;
+}
+
+/* hljs-Theme-Block-Styling neutralisieren, nur Token-Farben behalten */
+.phl-code.hljs {
+  display: block;
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+  color: inherit;
+}

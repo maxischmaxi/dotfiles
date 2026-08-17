@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+#
+# git-gone — delete local branches whose upstream on the remote is gone.
+#
+# Lives in ~/.config/bin (which is in PATH), so `git gone` works too.
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+git-gone — delete local branches whose upstream on the remote is gone.
+
+Usage: git gone [options] [remote]
+
+  remote           remote to check (default: the only one, else origin)
+
+  -n, --dry-run    only list what would be deleted
+  -y, --yes        skip the confirmation prompt
+  -f, --force      delete with -D (needed after squash merges)
+  -N, --no-fetch   skip the initial 'git fetch --prune'
+  -h, --help       show this help
+
+Only branches with a tracking upstream on that remote are considered;
+branches that were never pushed are never touched.
+EOF
+}
+
+die() { printf 'git-gone: %s\n' "$1" >&2; exit 1; }
+
+dry_run=0 assume_yes=0 force=0 do_fetch=1 remote=''
+
+while (( $# )); do
+  case "$1" in
+    -n|--dry-run)  dry_run=1 ;;
+    -y|--yes)      assume_yes=1 ;;
+    -f|--force)    force=1 ;;
+    -N|--no-fetch) do_fetch=0 ;;
+    -h|--help)     usage; exit 0 ;;
+    --)            shift; break ;;
+    -*)            usage >&2; die "unknown option: $1" ;;
+    *)             [[ -z $remote ]] || die "too many arguments: $1"; remote=$1 ;;
+  esac
+  shift
+done
+[[ $# -gt 0 && -z $remote ]] && remote=$1
+
+git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repository"
+
+mapfile -t remotes < <(git remote)
+
+if [[ -z $remote ]]; then
+  case ${#remotes[@]} in
+    0) die "no remote configured" ;;
+    1) remote=${remotes[0]} ;;
+    *)
+      if printf '%s\n' "${remotes[@]}" | grep -qx origin; then
+        remote=origin
+      else
+        die "several remotes (${remotes[*]}) and no 'origin' — pass one explicitly"
+      fi
+      ;;
+  esac
+elif ! printf '%s\n' "${remotes[@]}" | grep -qx -- "$remote"; then
+  die "unknown remote: $remote (have: ${remotes[*]:-none})"
+fi
+
+if (( do_fetch )); then
+  git fetch --prune "$remote"
+fi
+
+current=$(git symbolic-ref --quiet --short HEAD || true)
+gone=() current_gone=''
+
+while IFS=$'\t' read -r branch upstream track; do
+  [[ $track == '[gone]' ]] || continue
+  [[ $upstream == "$remote/"* ]] || continue
+  if [[ $branch == "$current" ]]; then
+    current_gone=$branch
+    continue
+  fi
+  gone+=("$branch")
+done < <(git for-each-ref \
+  --format='%(refname:short)%09%(upstream:short)%09%(upstream:track)' refs/heads/)
+
+if [[ -n $current_gone ]]; then
+  printf "note: '%s' is gone on %s but currently checked out — skipping\n" \
+    "$current_gone" "$remote"
+fi
+
+if (( ${#gone[@]} == 0 )); then
+  printf 'nothing to do — no local branch tracks a deleted %s branch\n' "$remote"
+  exit 0
+fi
+
+printf '%d branch(es) gone on %s:\n' "${#gone[@]}" "$remote"
+printf '  %s\n' "${gone[@]}"
+
+if (( dry_run )); then
+  exit 0
+fi
+
+if (( ! assume_yes )); then
+  [[ -t 0 ]] || die "not a terminal — rerun with --yes"
+  read -r -p "delete them? [y/N] " reply
+  [[ $reply == [yY]* ]] || { echo 'aborted'; exit 0; }
+fi
+
+flag=-d; (( force )) && flag=-D
+failed=() deleted=()
+
+for branch in "${gone[@]}"; do
+  # resolve the tip before deleting — it is the only way back afterwards
+  sha=$(git rev-parse --short "$branch" 2>/dev/null || echo '?')
+  if err=$(git branch "$flag" -- "$branch" 2>&1); then
+    deleted+=("$branch")
+    printf '  deleted  %s (was %s)\n' "$branch" "$sha"
+  else
+    failed+=("$branch")
+    printf '  failed   %s (%s)\n' "$branch" \
+      "$(head -1 <<<"$err" | sed -E 's/^(error|fatal|Fehler|schwerwiegend): //')"
+  fi
+done
+
+if (( ${#deleted[@]} )); then
+  printf 'restore with: git branch <name> <sha>   (reflog keeps them ~90 days)\n'
+fi
+
+if (( ${#failed[@]} && ! force )); then
+  printf 'hint: %d not deleted — rerun with -f to force (squash merges look unmerged)\n' \
+    "${#failed[@]}"
+fi
+
+(( ${#failed[@]} == 0 ))

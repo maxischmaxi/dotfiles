@@ -1,0 +1,27 @@
+.game-over-ad-sidecar-component,
+#main-banner,
+.medium-rectangle-ad-component,
+#board-layout-ad,
+.board-layout-ad,
+.medium-rectangle-btf-ad-wrapper,
+#medium-rectangle-btf-ad,
+#leaderboard-atf-ad,
+.leaderboard-atf-ad-wrapper,
+.medium-rectangle-atf-ad-wrapper,
+#medium-rectangle-ad-component,
+.ad-upgrade-link-component,
+.game-over-ad-container-component,
+.live-stats-component,
+.medium-rectangle-ad-slot {
+  display: none;
+  visibility: hidden;
+}
+
+body {
+  grid-template-columns:
+    [left-gutter] 1fr [extra-left] var(--extraColumnLeftOfBoard, 0)
+    [board-layout] min-content [sidebar] minmax(
+      var(--sidebarMinWidth),
+      var(--sidebarMaxWidth)
+    ) !important;
+}
