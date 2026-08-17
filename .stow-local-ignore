@@ -2,4 +2,15 @@
 chrome-extensions
 README.md
 update-nvim.sh
+diskhog
 fzf.zsh
+gamescope-debug.sh
+gamescope-wrapper.sh
+git-gone
+open-in-editor.sh
+projects-dir.sh
+tmux-ghostty-shader
+tmux-navigator.lua
+tmux-sessionizer
+tmux-window-navigation.sh
+update-nvim.sh
