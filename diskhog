@@ -6,7 +6,7 @@
 # walking into /stuff or /code. Reads only; it never deletes anything, it
 # just prints the cleanup commands and what they would free.
 #
-# Lives in ~/.config/bin (which is in PATH).
+# Lives in ~/dotfiles (which is in PATH).
 
 set -uo pipefail
 

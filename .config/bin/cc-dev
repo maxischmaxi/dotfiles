@@ -1,5 +1,0 @@
-#!/bin/sh
-
-clang -std=c17 -Wall -Wextra -Wpedantic -g -O0 \
-      -fsanitize=address,undefined \
-      -fno-omit-frame-pointer "$@"

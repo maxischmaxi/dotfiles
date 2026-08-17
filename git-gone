@@ -2,7 +2,7 @@
 #
 # git-gone — delete local branches whose upstream on the remote is gone.
 #
-# Lives in ~/.config/bin (which is in PATH), so `git gone` works too.
+# Lives in ~/dotfiles (which is in PATH), so `git gone` works too.
 
 set -euo pipefail
 

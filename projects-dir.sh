@@ -1,7 +1,7 @@
 # PROJECTS_DIR — wo die Code-Projekte liegen.
 #
 # Bewusst POSIX (kein zsh-Syntax): wird sowohl von zshrc.zsh als auch von
-# bash-Scripts wie bin/tmux-sessionizer gesourced. Einziger Ort, an dem der
+# bash-Scripts wie tmux-sessionizer gesourced. Einziger Ort, an dem der
 # Pfad steht — vorher war er über zshrc, sessionizer und einen Symlink
 # dupliziert und lief beim Umzug /code -> /stuff/programming auseinander.
 #

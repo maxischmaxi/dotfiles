@@ -157,9 +157,9 @@ nvm() {                       # Lazy-Stub: erster Aufruf lädt das echte nvm
 . "$HOME/.local/share/../bin/env"
 
 # --- PROJECTS_DIR: wo die Code-Projekte liegen -----------------------
-# Single Source of Truth (siehe ~/.config/shell/projects-dir.sh). Muss vor
+# Single Source of Truth (siehe ~/dotfiles/projects-dir.sh). Muss vor
 # allem stehen, was Projektpfade braucht (vault, tmux-sessionizer).
-source "$HOME/.config/shell/projects-dir.sh"
+source "$HOME/dotfiles/projects-dir.sh"
 
 export ANDROID_HOME="$HOME/Android/Sdk/"
 
@@ -265,7 +265,7 @@ export PATH="$PATH:$HOME/emsdk"
 export PATH="$PATH:$HOME/emsdk/upstream/emscripten"
 export PATH="$PATH:$HOME/.npm-global/bin"
 export PATH="$PATH:$HOME/mongodb/bin"
-export PATH="$PATH:$HOME/.config/bin"
+export PATH="$PATH:$HOME/dotfiles"
 export PATH="$PATH:$HOME/.local/bin"
 export PATH="$PATH:$HOME/flutter/bin"
 export PATH="$PATH:$HOME/Odin"
@@ -352,7 +352,7 @@ fi
 # fzf keybindings (nach dem tmux-exec, damit fzf Tab nicht wieder überschreibt)
 # Both steps share one guard: re-running enable-fzf-tab would wrap Tab twice.
 if _zshrc_once fzf; then
-  [ -f $HOME/.config/fzf.zsh ] && source $HOME/.config/fzf.zsh
+  [ -f $HOME/dotfiles/fzf.zsh ] && source $HOME/dotfiles/fzf.zsh
 
   # Re-enable fzf-tab after fzf (fzf overrides Tab binding)
   if (( $+functions[enable-fzf-tab] )); then
@@ -365,7 +365,7 @@ fi
 _zshrc_once atuin && eval "$(atuin init zsh)"
 
 # Projekt-Sessionizer (fuzzy über /stuff/programming, create-if-missing).
-# Funktioniert in tmux (switch-client) wie außerhalb (attach). Siehe ~/.config/bin/tmux-sessionizer
+# Funktioniert in tmux (switch-client) wie außerhalb (attach). Siehe ~/dotfiles/tmux-sessionizer
 # Nur noch über tmux prefix (Ctrl-a) + f — Ctrl-f-Shellbinding deaktiviert.
 # bindkey -s '^f' 'tmux-sessionizer\n'
 

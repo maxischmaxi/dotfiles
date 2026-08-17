@@ -88,7 +88,7 @@ local hooks = function(ev)
 end
 
 vim.api.nvim_create_autocmd("PackChanged", { callback = hooks })
-vim.cmd("source ~/.config/bin/tmux-navigator.lua")
+vim.cmd("source ~/dotfiles/tmux-navigator.lua")
 
 vim.api.nvim_create_autocmd("TextYankPost", {
 	callback = function()
