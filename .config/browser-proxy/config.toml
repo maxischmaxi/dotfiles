@@ -1,0 +1,96 @@
+default = "google-chrome-stable"
+log = false
+force_https = false
+strip_params = [
+  "utm_*",   # utm_source, utm_medium, utm_campaign, …
+  "fbclid",
+  "gclid",
+  "mc_cid",
+  "mc_eid",
+  "ref",
+  "ref_src",
+]
+
+[[rules]]
+prefix = "https://tuv-rh.atlassian.net/"
+browser = "brave"
+
+[[rules]]
+host = "git.trit.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "logicjoe.atlassian.net"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "tuv-rheinlanddev.e-spirit.hosting"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "component-library.trdev.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "galaxy-preview.trdev.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "galaxy.trdev.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "galaxy-preview.trqa.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "galaxy.trqa.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "logic-joe.slack.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "galaxy-vault.trdev.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "solaroid.jeschek.dev"
+browser = "google-chrome-stable"
+profile = "jeschek.dev"
+
+[[rules]]
+host = "notes.voiceblade.ai"
+browser = "google-chrome-stable"
+profile = "jeschek.dev"
+
+[[rules]]
+host = "app.voiceblade.ai"
+browser = "google-chrome-stable"
+profile = "jeschek.dev"
+
+[[rules]]
+host = "gateway.voiceblade.ai"
+browser = "google-chrome-stable"
+profile = "jeschek.dev"
+
+[[rules]]
+host = "youtube.com"
+browser = "google-chrome-stable"
+profile = "jeschek.dev"

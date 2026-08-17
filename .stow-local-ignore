@@ -1,1 +1,5 @@
 .git
+bin
+chrome-extensions
+README.md
+update-nvim.sh
