@@ -14,3 +14,4 @@ tmux-navigator.lua
 tmux-sessionizer
 tmux-window-navigation.sh
 update-nvim.sh
+shell
