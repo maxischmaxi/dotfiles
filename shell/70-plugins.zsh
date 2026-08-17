@@ -26,7 +26,7 @@ fi
 
 # atuin: MUSS nach fzf kommen, damit atuins Ctrl+R gewinnt.
 # Bindet auch Pfeil-hoch (ersetzt up-line-or-beginning-search von oben).
-_zshrc_once atuin && eval "$(atuin init zsh)"
+# _zshrc_once atuin && eval "$(atuin init zsh)"
 
 # Projekt-Sessionizer (fuzzy über /stuff/programming, create-if-missing).
 # Funktioniert in tmux (switch-client) wie außerhalb (attach). Siehe ~/dotfiles/tmux-sessionizer
