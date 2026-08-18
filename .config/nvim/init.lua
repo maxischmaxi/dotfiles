@@ -214,6 +214,8 @@ set("n", "<leader>hw", word_highlight.toggle, { desc = "[H]ighlight [W]ord toggl
 
 require("custom.char_jump").setup()
 
+require("custom.csv_columns").setup()
+
 require("inc-select").setup()
 
 require("custom.auto_set_tabstop")
