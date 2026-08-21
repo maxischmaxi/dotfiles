@@ -105,6 +105,13 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd("systemctl --user start hypridle.service")
 end)
 
+-- Raise on focus: Hyprland keeps the floating stack as it is when focus moves,
+-- so a window can stay buried under the one you just left. There is no config
+-- option for it, so do it on every focus change. No-op for tiled windows.
+hl.on("window.active", function()
+	hl.dispatch(hl.dsp.window.bring_to_top())
+end)
+
 ------------------------------------------------------------------
 -- Look & Feel + Input
 ------------------------------------------------------------------
@@ -314,10 +321,9 @@ hl.animation({ leaf = "workspacesOut", enabled = false, speed = 1, bezier = "alm
 -- Keybindings
 ------------------------------------------------------------------
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
--- ENTER = real fullscreen (covers everything), F = maximize (respects reserved
--- edges, keeps rounding). Both toggle.
+-- ENTER = real fullscreen, for video and games (direct scanout). F is bound
+-- per layout mode further down.
 hl.bind(mainMod .. " + Return", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
-hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
 hl.bind(mainMod .. " + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + M", hl.dsp.exit())
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
@@ -329,10 +335,237 @@ hl.bind(mainMod .. " + G", hl.dsp.group.toggle())
 hl.bind(mainMod .. " + TAB", hl.dsp.group.next())
 hl.bind(mainMod .. " + SHIFT + TAB", hl.dsp.group.prev())
 
--- Info-Shortcuts (Uhr / Fenster-Switcher / Notifications)
+-- Info-Shortcuts (Uhr / Notifications)
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/show-time.sh"))
-hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("rofi -show window"))
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("swaync-client -t"))
+
+-- ALT+TAB, replacing hyprshell. Windows are ordered most-recently-used, so the
+-- window you are not looking at is preselected: tap ALT+TAB and let go to
+-- toggle between two windows. Holding ALT and tapping TAB walks further down,
+-- SHIFT reverses. The focus only moves once ALT is released.
+--
+-- Two implementations, and the binds pick per keystroke:
+--   1. the hypr-altswitch plugin, which draws real window thumbnails
+--   2. this Lua one, which draws the list as a Hyprland notification
+-- If the plugin is missing (not built, or rejected after a Hyprland update
+-- changed the ABI) or has disabled itself, the Lua one takes over silently —
+-- ALT+TAB always does something.
+local switcher = { list = nil, index = 1, notif = nil }
+
+local function altHeld()
+	return hl.is_key_down("Alt_L") or hl.is_key_down("Alt_R")
+end
+
+-- Byte-safe clip: never cut a UTF-8 sequence in half.
+local function clip(str, max)
+	if #str <= max then
+		return str
+	end
+	local cut = max
+	local nextByte = str:byte(cut + 1)
+	while cut > 1 and nextByte and nextByte >= 0x80 and nextByte < 0xC0 do
+		cut = cut - 1
+		nextByte = str:byte(cut + 1)
+	end
+	return str:sub(1, cut) .. "…"
+end
+
+local function switcherText()
+	local lines = {}
+	for i, w in ipairs(switcher.list) do
+		-- com.mitchellh.ghostty -> ghostty, google-chrome stays as it is
+		local name = (w.class or ""):match("[^.]+$") or "?"
+		local title = clip(w.title or "", 38)
+		lines[#lines + 1] = (i == switcher.index and "▸  " or "     ") .. name .. (title ~= "" and ("   " .. title) or "")
+	end
+	return table.concat(lines, "\n")
+end
+
+local function drawSwitcher()
+	local text = switcherText()
+	if switcher.notif and switcher.notif:is_alive() then
+		switcher.notif:set_text(text)
+		switcher.notif:set_timeout(5000)
+	else
+		switcher.notif = hl.notification.create({
+			text = text,
+			timeout = 5000,
+			-- swaync's text-muted; Hyprland paints it as the left accent bar.
+			-- No markup available here, the renderer prints tags verbatim.
+			color = "rgb(9a9aa2)",
+			font_size = 11,
+		})
+	end
+end
+
+-- Apply the selection and tear the overlay down. Idempotent: the release bind
+-- and the watchdog below may both land on it.
+local function commitSwitcher()
+	local win = switcher.list and switcher.list[switcher.index]
+	if switcher.notif then
+		pcall(function()
+			switcher.notif:dismiss()
+		end)
+		switcher.notif = nil
+	end
+	switcher.list, switcher.index = nil, 1
+	if win then
+		-- a window from the frozen list can be gone by now
+		pcall(function()
+			hl.dispatch(hl.dsp.focus({ window = win }))
+		end)
+	end
+end
+
+local function altTab(step)
+	return function()
+		-- Start a fresh cycle unless one is running with ALT still down.
+		if not switcher.list or not altHeld() then
+			local wins = {}
+			for _, w in ipairs(hl.get_windows()) do
+				if w.mapped and not w.hidden then
+					wins[#wins + 1] = w
+				end
+			end
+			-- focus_history_id: 0 is the focused window, 1 the one before it, ...
+			table.sort(wins, function(a, b)
+				return a.focus_history_id < b.focus_history_id
+			end)
+			if #wins < 2 then
+				return
+			end
+			switcher.list, switcher.index = wins, 1
+		end
+		switcher.index = (switcher.index + step - 1) % #switcher.list + 1
+		drawSwitcher()
+	end
+end
+
+-- Path to the built plugin, or nil to stay on the Lua switcher.
+-- Build it with: cd /stuff/programming/hypr-altswitch && make
+local switcherPluginPath = "/home/max/.local/share/hyprland/plugins/hypr-altswitch.so"
+
+-- Returns the plugin namespace only if it is loaded AND still reports itself
+-- healthy. hl.plugin.load() does not report failures back, so asking for the
+-- namespace afterwards is the only reliable check.
+local function switcherPlugin()
+	local ns = hl.plugin and hl.plugin.altswitch
+	if type(ns) ~= "table" or type(ns.healthy) ~= "function" then
+		return nil
+	end
+	local ok, healthy = pcall(ns.healthy)
+	if ok and healthy then
+		return ns
+	end
+	return nil
+end
+
+if switcherPluginPath then
+	pcall(function()
+		hl.plugin.load(switcherPluginPath)
+	end)
+	if not switcherPlugin() then
+		hl.notification.create({
+			text = "alt-tab: plugin not loaded, using the built-in list.\nrebuild it after a Hyprland update.",
+			timeout = 6000,
+			color = "rgb(9a9aa2)",
+			font_size = 11,
+		})
+	end
+end
+
+-- Watchdog, shared by both implementations. The ALT release bind is not
+-- guaranteed to fire, and an overlay nobody closes just sits there: the Lua list
+-- hid that behind its own 5s notification timeout, the plugin overlay has none.
+--
+-- It calibrates itself. At the moment ALT+TAB fires, ALT is held by definition —
+-- so if is_key_down disagrees right there, key state is unusable in this session
+-- and the watchdog closes on inactivity instead of on release.
+local watchdog = { timer = nil, idle = 0, keyStateUsable = false }
+
+
+-- Declared up front: watchdog and commit call each other.
+local switchCommit, watchdogStart, watchdogStop
+
+local function switcherIsOpen()
+	if switcher.list then
+		return true
+	end
+	local ns = switcherPlugin()
+	if ns then
+		local ok, active = pcall(ns.active)
+		return ok and active == true
+	end
+	return false
+end
+
+watchdogStop = function()
+	watchdog.idle = 0
+	if watchdog.timer then
+		watchdog.timer:set_enabled(false)
+	end
+end
+
+watchdogStart = function()
+	watchdog.idle           = 0
+	watchdog.keyStateUsable = altHeld()
+
+	if not watchdog.timer then
+		watchdog.timer = hl.timer(function()
+			if not switcherIsOpen() then
+				watchdogStop()
+				return
+			end
+			if watchdog.keyStateUsable then
+				if not altHeld() then
+					switchCommit()
+				end
+				return
+			end
+			-- No usable key state: close ~1.5s after the last keypress.
+			watchdog.idle = watchdog.idle + 1
+			if watchdog.idle > 25 then
+				switchCommit()
+			end
+		end, { timeout = 60, type = "repeat" })
+	end
+	watchdog.timer:set_enabled(true)
+end
+
+-- Every step tries the plugin first and falls through to Lua on any failure,
+-- so a plugin that dies mid-cycle costs one keystroke, not the feature.
+local function switchStep(step)
+	local luaStep = altTab(step)
+	return function()
+		local ns = switcherPlugin()
+		if not (ns and pcall(step > 0 and ns.next or ns.prev)) then
+			luaStep()
+		end
+		watchdogStart()
+	end
+end
+
+switchCommit = function()
+	local ns = switcherPlugin()
+	if ns then
+		pcall(ns.commit)
+	end
+	-- Also close the Lua one: a no-op when idle, and it is what cleans up if the
+	-- plugin fell over while its overlay was on screen.
+	commitSwitcher()
+	watchdogStop()
+end
+
+hl.bind("ALT + Tab", switchStep(1))
+hl.bind("ALT + SHIFT + Tab", switchStep(-1))
+-- non_consuming: ALT on its own must still reach the app (Chrome's menu bar and
+-- friends react to a bare ALT press/release).
+-- No modifier on these: by the time ALT comes up, the ALT modifier is already
+-- gone, so "ALT + Alt_L" never matches — measured, it fired exactly zero times.
+-- Without a modifier they fire on every ALT release; switchCommit is a no-op
+-- when no switcher is open, and non_consuming keeps a bare ALT reaching the app.
+hl.bind("Alt_L", function() switchCommit() end, { release = true, non_consuming = true })
+hl.bind("Alt_R", function() switchCommit() end, { release = true, non_consuming = true })
 
 -- Workspace vor/zurück inkl. leerer (vormals `exec, hyprctl dispatch workspace r±1`)
 hl.bind(mainMod .. " + N", hl.dsp.focus({ workspace = "r+1" }))
@@ -422,33 +655,88 @@ end
 hl.bind(mainMod .. " + j", hl.dsp.focus({ direction = "down" }))
 hl.bind(mainMod .. " + k", hl.dsp.focus({ direction = "up" }))
 
-if floating then
-	-- Snapping: Hyprland has no notion of screen halves, so do the math here.
-	-- fx/fy = position, fw/fh = size, each as a fraction of the usable area
-	-- (monitor minus reserved edges, scale corrected).
-	local function snap(fx, fy, fw, fh)
-		return function()
-			local win = hl.get_active_window()
-			if not win then
-				return
-			end
-			local m = win.monitor or hl.get_monitor_at_cursor()
-			if not m then
-				return
-			end
-			local r = m.reserved or {}
-			local scale = m.scale or 1
-			local ax = m.x + (r.left or 0)
-			local ay = m.y + (r.top or 0)
-			local aw = m.width / scale - (r.left or 0) - (r.right or 0)
-			local ah = m.height / scale - (r.top or 0) - (r.bottom or 0)
-			if not win.floating then
-				hl.dispatch(hl.dsp.window.float({ action = "enable" }))
-			end
-			hl.dispatch(hl.dsp.window.resize({ x = math.floor(aw * fw), y = math.floor(ah * fh) }))
-			hl.dispatch(hl.dsp.window.move({ x = math.floor(ax + aw * fx), y = math.floor(ay + ah * fy) }))
-		end
+-- Usable area of a window's monitor: full size minus reserved edges, scale
+-- corrected. Both snapping and scaling below work against it.
+local function usableArea(win)
+	local m = (win and win.monitor) or hl.get_monitor_at_cursor()
+	if not m then
+		return nil
 	end
+	local r = m.reserved or {}
+	local scale = m.scale or 1
+	return {
+		x = m.x + (r.left or 0),
+		y = m.y + (r.top or 0),
+		w = m.width / scale - (r.left or 0) - (r.right or 0),
+		h = m.height / scale - (r.top or 0) - (r.bottom or 0),
+	}
+end
+
+-- Snapping: Hyprland has no notion of screen halves, so do the math here.
+-- fx/fy = position, fw/fh = size, each as a fraction of the usable area.
+local function snap(fx, fy, fw, fh)
+	return function()
+		local win = hl.get_active_window()
+		local a = win and usableArea(win)
+		if not a then
+			return
+		end
+		if not win.floating then
+			hl.dispatch(hl.dsp.window.float({ action = "enable" }))
+		end
+		hl.dispatch(hl.dsp.window.resize({ x = math.floor(a.w * fw), y = math.floor(a.h * fh) }))
+		hl.dispatch(hl.dsp.window.move({ x = math.floor(a.x + a.w * fx), y = math.floor(a.y + a.h * fy) }))
+	end
+end
+
+-- Grow/shrink around the window's center. Clamped to the usable area and to a
+-- floor of 320x200 so a window can never be scaled into nothing.
+local function scaleWindow(factor)
+	return function()
+		local win = hl.get_active_window()
+		local a = win and usableArea(win)
+		if not a then
+			return
+		end
+		local nw = math.floor(math.max(320, math.min(a.w, win.size.x * factor)))
+		local nh = math.floor(math.max(200, math.min(a.h, win.size.y * factor)))
+		local nx = math.floor(win.at.x + (win.size.x - nw) / 2)
+		local ny = math.floor(win.at.y + (win.size.y - nh) / 2)
+		-- pull back inside the work area if the center moved it past an edge
+		nx = math.max(a.x, math.min(a.x + a.w - nw, nx))
+		ny = math.max(a.y, math.min(a.y + a.h - nh, ny))
+		if not win.floating then
+			hl.dispatch(hl.dsp.window.float({ action = "enable" }))
+		end
+		hl.dispatch(hl.dsp.window.resize({ x = nw, y = nh }))
+		hl.dispatch(hl.dsp.window.move({ x = nx, y = ny }))
+	end
+end
+
+if floating then
+	-- +/- scale by 10% in both directions; shrinking uses 1/1.1 so that a plus
+	-- and a minus cancel each other out exactly.
+	hl.bind(mainMod .. " + plus", scaleWindow(1.1))
+	hl.bind(mainMod .. " + minus", scaleWindow(1 / 1.1))
+	hl.bind(mainMod .. " + KP_Add", scaleWindow(1.1))
+	hl.bind(mainMod .. " + KP_Subtract", scaleWindow(1 / 1.1))
+
+	-- SUPER+F fills the usable area by resizing instead of entering Hyprland's
+	-- maximize mode: a maximized or fullscreen window leaves the floating stack,
+	-- and raise-on-focus can no longer lift it above the others. Pressing it
+	-- again returns to the centered default size.
+	hl.bind(mainMod .. " + F", function()
+		local win = hl.get_active_window()
+		local a = win and usableArea(win)
+		if not a then
+			return
+		end
+		if win.size.x >= a.w - 4 and win.size.y >= a.h - 4 then
+			snap(0.2, 0.15, 0.6, 0.7)()
+		else
+			snap(0, 0, 1, 1)()
+		end
+	end)
 
 	-- halves on SHIFT+hjkl
 	hl.bind(mainMod .. " + SHIFT + h", snap(0, 0, 0.5, 1))
@@ -473,6 +761,7 @@ if floating then
 	hl.bind(mainMod .. " + R", hl.dsp.window.center())
 	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
 else
+	hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
 	-- Scrolling-Layout: Spalte verschieben / Ansicht ohne Fokuswechsel / Breiten
 	hl.bind(mainMod .. " + SHIFT + h", hl.dsp.layout("swapcol l"))
 	hl.bind(mainMod .. " + SHIFT + l", hl.dsp.layout("swapcol r"))
@@ -560,6 +849,13 @@ if floating then
 	-- hl.window_rule({ match = { class = ".*" }, size = "60% 60%" })
 	-- hl.window_rule({ match = { class = ".*" }, center = true })
 end
+
+-- Ghostty opens at its 800x600 toolkit default, which is a postage stamp on 4K.
+-- 1920x1166 is half the screen's width and ~160x44 cells at font-size 15
+-- (cell ~12x26 px). Pixels, not "50% 54%": the size effect is parsed as a math
+-- expression and percent strings silently do not apply.
+hl.window_rule({ match = { class = "^(com\\.mitchellh\\.ghostty)$" }, size = "1920 1166" })
+hl.window_rule({ match = { class = "^(com\\.mitchellh\\.ghostty)$" }, center = true })
 
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, float = true })
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, no_anim = true })
