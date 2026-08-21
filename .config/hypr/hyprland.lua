@@ -32,6 +32,16 @@ local menu = "rofi -show drun"
 local mainMod = "SUPER"
 
 ------------------------------------------------------------------
+-- Layout-Modus
+-- "scrolling" = niri-style tape, "floating" = every window floats.
+-- Only knob to flip: change the value, then `hyprctl reload`.
+-- It switches general.layout, the catch-all float rule, shadows and
+-- the layout-specific keybinds further down in one go.
+------------------------------------------------------------------
+local layoutMode = "floating"
+local floating = layoutMode == "floating"
+
+------------------------------------------------------------------
 -- Monitore (Namen/Modes via `hyprctl monitors`)
 -- desc: statt Port-Name — die DP-/HDMI-Namen wechseln je nach Boot/Treiber.
 -- desc bindet an die EDID (Modell + Serial) und bleibt stabil.
@@ -100,7 +110,9 @@ end)
 ------------------------------------------------------------------
 hl.config({
 	general = {
-		layout = "scrolling",
+		-- floating mode still needs a tiling layout underneath for anything the
+		-- catch-all rule misses; dwindle is the harmless fallback.
+		layout = floating and "dwindle" or "scrolling",
 		gaps_in = 0,
 		gaps_out = 0,
 		border_size = 2,
@@ -186,8 +198,9 @@ hl.config({
 			-- Aus: bei gaps_in/gaps_out = 0 kleben die Fenster aneinander, der
 			-- Schatten ist nur am Bildschirmrand und bei floating Windows
 			-- überhaupt sichtbar. render_power 3 war dabei die teuerste Stufe.
-			-- Zum Reaktivieren: enabled = true.
-			enabled = false,
+			-- Deshalb hängt er am layoutMode: im floating trennt er die
+			-- überlappenden Fenster, im scrolling kostet er nur GPU-Zeit.
+			enabled = floating,
 			range = 20,
 			render_power = 3,
 			color = "rgba(1a1a1aee)",
@@ -287,16 +300,21 @@ hl.animation({ leaf = "layersIn", enabled = true, speed = 2, bezier = "easeOutQu
 hl.animation({ leaf = "layersOut", enabled = true, speed = 0.9, bezier = "linear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 0.9, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 0.75, bezier = "almostLinear" })
--- slidevert: higher workspace id slides in from below, matches j/k = down/up
-hl.animation({ leaf = "workspaces", enabled = true, speed = 1, bezier = "almostLinear", style = "slidevert" })
-hl.animation({ leaf = "workspacesIn", enabled = true, speed = 1, bezier = "almostLinear", style = "slidevert" })
-hl.animation({ leaf = "workspacesOut", enabled = true, speed = 1, bezier = "almostLinear", style = "slidevert" })
+-- Workspaces liegen nebeneinander (style = "slide", horizontal), der Wechsel
+-- springt aber ohne Animation. style bleibt gesetzt, damit ein enabled = true
+-- direkt horizontal schiebt statt vertikal.
+hl.animation({ leaf = "workspaces", enabled = false, speed = 1, bezier = "almostLinear", style = "slide" })
+hl.animation({ leaf = "workspacesIn", enabled = false, speed = 1, bezier = "almostLinear", style = "slide" })
+hl.animation({ leaf = "workspacesOut", enabled = false, speed = 1, bezier = "almostLinear", style = "slide" })
 
 ------------------------------------------------------------------
 -- Keybindings
 ------------------------------------------------------------------
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
-hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
+-- ENTER = echtes Fullscreen (deckt alles ab), F = maximieren (respektiert
+-- reservierte Ränder und behält Border/Rundung). Beide togglen.
+hl.bind(mainMod .. " + Return", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
 hl.bind(mainMod .. " + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + M", hl.dsp.exit())
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
@@ -316,6 +334,9 @@ hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("swaync-client -t"))
 -- Workspace vor/zurück inkl. leerer (vormals `exec, hyprctl dispatch workspace r±1`)
 hl.bind(mainMod .. " + N", hl.dsp.focus({ workspace = "r+1" }))
 hl.bind(mainMod .. " + P", hl.dsp.focus({ workspace = "r-1" }))
+-- Fenster auf den nächsten/vorherigen Workspace (saß vorher auf SHIFT+j/k)
+hl.bind(mainMod .. " + SHIFT + N", hl.dsp.window.move({ workspace = "r+1" }))
+hl.bind(mainMod .. " + SHIFT + P", hl.dsp.window.move({ workspace = "r-1" }))
 
 -- Screenshots / Screencast
 hl.bind("CTRL + ALT + 4", hl.dsp.exec_cmd('grim -g "$(slurp)" - | swappy -f -'))
@@ -328,59 +349,82 @@ hl.bind(mainMod .. " + right", hl.dsp.window.resize({ x = 40, y = 0, relative = 
 hl.bind(mainMod .. " + up", hl.dsp.window.resize({ x = 0, y = -40, relative = true }))
 hl.bind(mainMod .. " + down", hl.dsp.window.resize({ x = 0, y = 40, relative = true }))
 
--- Fokus bewegen. h/l scrollen das Band (Fokus zieht die Ansicht mit, wrappt am
--- Bandende statt auf den Nachbarmonitor zu springen).
-hl.bind(mainMod .. " + h", hl.dsp.layout("focus l"))
-hl.bind(mainMod .. " + l", hl.dsp.layout("focus r"))
--- j/k: focus the nearest window below/above in the current column first;
--- if there is none, switch to the next/previous workspace.
-local function verticalNeighbor(dir)
-	local active = hl.get_active_window()
-	if not active then
-		return nil
-	end
-	local acy = active.at.y + active.size.y / 2
-	local best, bestDist
-	for _, w in ipairs(hl.get_workspace_windows(active.workspace)) do
-		local overlapsH = w.address ~= active.address
-			and w.at.x < active.at.x + active.size.x
-			and active.at.x < w.at.x + w.size.x
-		if overlapsH then
-			local dist = (w.at.y + w.size.y / 2 - acy) * (dir == "d" and 1 or -1)
-			if dist > 1 and (not bestDist or dist < bestDist) then
-				best, bestDist = w, dist
+-- Fokus bewegen. Im scrolling scrollen h/l das Band (Fokus zieht die Ansicht mit,
+-- wrappt am Bandende statt auf den Nachbarmonitor zu springen), im floating
+-- springt der Fokus zum Fenster links/rechts.
+if floating then
+	hl.bind(mainMod .. " + h", hl.dsp.focus({ direction = "left" }))
+	hl.bind(mainMod .. " + l", hl.dsp.focus({ direction = "right" }))
+else
+	hl.bind(mainMod .. " + h", hl.dsp.layout("focus l"))
+	hl.bind(mainMod .. " + l", hl.dsp.layout("focus r"))
+end
+-- j/k: nur noch Fokus nach unten/oben. Workspaces hängen jetzt ausschließlich an
+-- SUPER+1..0 (und N/P), nicht mehr an j/k.
+hl.bind(mainMod .. " + j", hl.dsp.focus({ direction = "down" }))
+hl.bind(mainMod .. " + k", hl.dsp.focus({ direction = "up" }))
+
+if floating then
+	-- Snapping: Hyprland kennt keine Bildschirmhälften, also selbst rechnen.
+	-- fx/fy = Position, fw/fh = Größe, jeweils als Anteil der nutzbaren Fläche
+	-- (Monitor minus reservierte Ränder, skalierungsbereinigt).
+	local function snap(fx, fy, fw, fh)
+		return function()
+			local win = hl.get_active_window()
+			if not win then
+				return
 			end
+			local m = win.monitor or hl.get_monitor_at_cursor()
+			if not m then
+				return
+			end
+			local r = m.reserved or {}
+			local scale = m.scale or 1
+			local ax = m.x + (r.left or 0)
+			local ay = m.y + (r.top or 0)
+			local aw = m.width / scale - (r.left or 0) - (r.right or 0)
+			local ah = m.height / scale - (r.top or 0) - (r.bottom or 0)
+			if not win.floating then
+				hl.dispatch(hl.dsp.window.float({ action = "enable" }))
+			end
+			hl.dispatch(hl.dsp.window.resize({ x = math.floor(aw * fw), y = math.floor(ah * fh) }))
+			hl.dispatch(hl.dsp.window.move({ x = math.floor(ax + aw * fx), y = math.floor(ay + ah * fy) }))
 		end
 	end
-	return best
+
+	-- Hälften auf SHIFT+hjkl
+	hl.bind(mainMod .. " + SHIFT + h", snap(0, 0, 0.5, 1))
+	hl.bind(mainMod .. " + SHIFT + l", snap(0.5, 0, 0.5, 1))
+	hl.bind(mainMod .. " + SHIFT + k", snap(0, 0, 1, 0.5))
+	hl.bind(mainMod .. " + SHIFT + j", snap(0, 0.5, 1, 0.5))
+	-- Viertel auf CTRL+1..4, als 2x2-Raster gelesen:
+	-- 1 = oben links, 2 = oben rechts, 3 = unten links, 4 = unten rechts
+	hl.bind(mainMod .. " + CTRL + 1", snap(0, 0, 0.5, 0.5))
+	hl.bind(mainMod .. " + CTRL + 2", snap(0.5, 0, 0.5, 0.5))
+	hl.bind(mainMod .. " + CTRL + 3", snap(0, 0.5, 0.5, 0.5))
+	hl.bind(mainMod .. " + CTRL + 4", snap(0.5, 0.5, 0.5, 0.5))
+	-- Zentriert auf 60x70% — der "Standardplatz" für ein einzelnes Fenster
+	hl.bind(mainMod .. " + SHIFT + Return", snap(0.2, 0.15, 0.6, 0.7))
+
+	-- CTRL+hjkl schiebt das Fenster pixelweise (Pendant zu den Pfeiltasten,
+	-- die weiter oben die Größe ändern).
+	hl.bind(mainMod .. " + CTRL + h", hl.dsp.window.move({ x = -60, y = 0, relative = true }))
+	hl.bind(mainMod .. " + CTRL + l", hl.dsp.window.move({ x = 60, y = 0, relative = true }))
+	hl.bind(mainMod .. " + CTRL + k", hl.dsp.window.move({ x = 0, y = -60, relative = true }))
+	hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.move({ x = 0, y = 60, relative = true }))
+	hl.bind(mainMod .. " + R", hl.dsp.window.center())
+	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
+else
+	-- Scrolling-Layout: Spalte verschieben / Ansicht ohne Fokuswechsel / Breiten
+	hl.bind(mainMod .. " + SHIFT + h", hl.dsp.layout("swapcol l"))
+	hl.bind(mainMod .. " + SHIFT + l", hl.dsp.layout("swapcol r"))
+	hl.bind(mainMod .. " + CTRL + h", hl.dsp.layout("move -col"))
+	hl.bind(mainMod .. " + CTRL + l", hl.dsp.layout("move +col"))
+	hl.bind(mainMod .. " + R", hl.dsp.layout("colresize +conf"))
+	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.layout("fit expand"))
+	hl.bind(mainMod .. " + BRACKETLEFT", hl.dsp.layout("consume_or_expel prev"))
+	hl.bind(mainMod .. " + BRACKETRIGHT", hl.dsp.layout("consume_or_expel next"))
 end
-
-local function focusOrWorkspace(dir, ws)
-	return function()
-		local neighbor = verticalNeighbor(dir)
-		if neighbor then
-			hl.dispatch(hl.dsp.focus({ window = neighbor }))
-		else
-			hl.dispatch(hl.dsp.focus({ workspace = ws }))
-		end
-	end
-end
-
-hl.bind(mainMod .. " + j", focusOrWorkspace("d", "r+1"))
-hl.bind(mainMod .. " + k", focusOrWorkspace("u", "r-1"))
--- SHIFT+j/k: move the active window to the next/previous workspace (follows focus)
-hl.bind(mainMod .. " + SHIFT + j", hl.dsp.window.move({ workspace = "r+1" }))
-hl.bind(mainMod .. " + SHIFT + k", hl.dsp.window.move({ workspace = "r-1" }))
-
--- Scrolling-Layout: Spalte verschieben / Ansicht ohne Fokuswechsel / Breiten
-hl.bind(mainMod .. " + SHIFT + h", hl.dsp.layout("swapcol l"))
-hl.bind(mainMod .. " + SHIFT + l", hl.dsp.layout("swapcol r"))
-hl.bind(mainMod .. " + CTRL + h", hl.dsp.layout("move -col"))
-hl.bind(mainMod .. " + CTRL + l", hl.dsp.layout("move +col"))
-hl.bind(mainMod .. " + R", hl.dsp.layout("colresize +conf"))
-hl.bind(mainMod .. " + SHIFT + R", hl.dsp.layout("fit expand"))
-hl.bind(mainMod .. " + BRACKETLEFT", hl.dsp.layout("consume_or_expel prev"))
-hl.bind(mainMod .. " + BRACKETRIGHT", hl.dsp.layout("consume_or_expel next"))
 
 -- Workspaces wechseln (SUPER+1..0) / aktives Fenster verschieben (SUPER+SHIFT+1..0)
 for i = 1, 10 do
@@ -393,9 +437,15 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Mausrad: durchs Band scrollen; mit SHIFT stattdessen Workspaces wechseln
-hl.bind(mainMod .. " + mouse_down", hl.dsp.layout("focus r"))
-hl.bind(mainMod .. " + mouse_up", hl.dsp.layout("focus l"))
+-- Mausrad: durchs Band scrollen (floating: Fokus nach links/rechts);
+-- mit SHIFT stattdessen Workspaces wechseln
+if floating then
+	hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ direction = "right" }))
+	hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ direction = "left" }))
+else
+	hl.bind(mainMod .. " + mouse_down", hl.dsp.layout("focus r"))
+	hl.bind(mainMod .. " + mouse_up", hl.dsp.layout("focus l"))
+end
 hl.bind(mainMod .. " + SHIFT + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + SHIFT + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 
@@ -442,6 +492,17 @@ hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl -p playerctld previous"), { 
 ------------------------------------------------------------------
 -- Window Rules (Reihenfolge = top-to-bottom, wie in hyprland.conf)
 ------------------------------------------------------------------
+-- Catch-all zuerst: Hyprland kennt kein "floating"-Layout, der Modus ist genau
+-- diese Regel. Steht oben, damit die spezifischeren Regeln darunter (rounding,
+-- border_size, no_anim) weiterhin greifen.
+if floating then
+	hl.window_rule({ match = { class = ".*" }, float = true })
+	-- Optional, falls Fenster auf 4K zu klein aufgehen — trifft dann aber auch
+	-- Dialoge und PiP:
+	-- hl.window_rule({ match = { class = ".*" }, size = "60% 60%" })
+	-- hl.window_rule({ match = { class = ".*" }, center = true })
+end
+
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, float = true })
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, no_anim = true })
 

@@ -13,7 +13,13 @@ strip_params = [
 
 [[rules]]
 prefix = "https://tuv-rh.atlassian.net/"
-browser = "brave"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
+
+[[rules]]
+host = "galaxy.trit.tuv.com"
+browser = "google-chrome-stable"
+profile = "logic-joe.com"
 
 [[rules]]
 host = "git.trit.tuv.com"
