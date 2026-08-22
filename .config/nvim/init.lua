@@ -287,7 +287,6 @@ require("conform").setup({
 		c = { "clang-format" },
 		cpp = { "clang-format" },
 		["_"] = { "trim_whitespace" },
-		["*"] = { "codespell" },
 	},
 	formatters = {
 		odinfmt = {

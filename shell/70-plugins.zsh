@@ -1,7 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════
 # 70-plugins.zsh — ZLE-Plugins & Tool-Integrationen.
 # Lade-Reihenfolge ist kritisch (entspricht der alten .zshrc):
-#   compinit (00) → fzf-tab → fzf → atuin → zoxide → carapace →
+#   compinit (00) → fzf-tab → fzf → zoxide → carapace →
 #   zsh-autosuggestions → zsh-syntax-highlighting (ZULETZT, wrappt alle Widgets).
 # ══════════════════════════════════════════════════════════════════════
 
@@ -23,10 +23,6 @@ if _zshrc_once fzf; then
     enable-fzf-tab
   fi
 fi
-
-# atuin: MUSS nach fzf kommen, damit atuins Ctrl+R gewinnt.
-# Bindet auch Pfeil-hoch (ersetzt up-line-or-beginning-search von oben).
-# _zshrc_once atuin && eval "$(atuin init zsh)"
 
 # Projekt-Sessionizer (fuzzy über /stuff/programming, create-if-missing).
 # Funktioniert in tmux (switch-client) wie außerhalb (attach). Siehe ~/dotfiles/tmux-sessionizer
@@ -69,7 +65,6 @@ fi
 
 # --- zsh-autosuggestions: nach allen Widget-Plugins, VOR syntax-highlighting ---
 # Graue Inline-Vorhersage aus der History; Rechtspfeil oder End uebernimmt sie.
-# Kein Konflikt mit atuin — das sitzt auf Ctrl+R und Pfeil-hoch.
 # BUFFER_MAX_SIZE verhindert Tipp-Lag bei sehr langen Zeilen.
 ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 if _zshrc_once autosuggestions; then
