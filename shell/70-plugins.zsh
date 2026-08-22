@@ -36,6 +36,22 @@ fi
 # zoxide must be initialized at the very end of this file so that nothing
 # else can clobber chpwd_functions and trigger __zoxide_doctor warnings.
 export _ZO_DOCTOR=0
+
+# Scratch and pseudo-filesystems never earn a frecency jump — keep them out of
+# the db instead of pruning them by hand later. Colon-separated globs; a bare
+# path (no /*) excludes only that directory, not its children.
+export _ZO_EXCLUDE_DIRS="/tmp/*:/run/*:/proc/*:/sys/*:/mnt/*:/var/tmp/*"
+
+# `cdi` picker. The interactive list is "<score> <path>", so {2..} is the path
+# (works with spaces in it). eza is optional — fall back to plain ls.
+if command -v eza >/dev/null 2>&1; then
+  _zo_preview='eza -1 --color=always --icons --group-directories-first {2..}'
+else
+  _zo_preview='ls -1 --color=always {2..}'
+fi
+export _ZO_FZF_OPTS="--height=45% --layout=reverse --border --preview='$_zo_preview' --preview-window=right,50%"
+unset _zo_preview
+
 _zshrc_once zoxide && eval "$(zoxide init zsh --cmd cd)"
 
 # --- carapace: Completions fuer ~1000 CLIs (gh, glab, kubectl, docker, ...) ---
