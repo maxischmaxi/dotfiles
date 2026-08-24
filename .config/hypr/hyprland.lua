@@ -205,7 +205,7 @@ hl.config({
 		-- Focus marker instead of a border: everything inactive gets darkened.
 		-- dim_strength is 0..1, upstream default is 0.5.
 		dim_inactive = true,
-		dim_strength = 0.4,
+		dim_strength = 0.2,
 		shadow = {
 			-- Off in every layout mode: render_power 3 is the priciest step and
 			-- telling windows apart is the dimming's job now.
@@ -376,7 +376,9 @@ local function switcherText()
 		-- com.mitchellh.ghostty -> ghostty, google-chrome stays as it is
 		local name = (w.class or ""):match("[^.]+$") or "?"
 		local title = clip(w.title or "", 38)
-		lines[#lines + 1] = (i == switcher.index and "▸  " or "     ") .. name .. (title ~= "" and ("   " .. title) or "")
+		lines[#lines + 1] = (i == switcher.index and "▸  " or "     ")
+			.. name
+			.. (title ~= "" and ("   " .. title) or "")
 	end
 	return table.concat(lines, "\n")
 end
@@ -483,7 +485,6 @@ end
 -- and the watchdog closes on inactivity instead of on release.
 local watchdog = { timer = nil, idle = 0, keyStateUsable = false }
 
-
 -- Declared up front: watchdog and commit call each other.
 local switchCommit, watchdogStart, watchdogStop
 
@@ -507,7 +508,7 @@ watchdogStop = function()
 end
 
 watchdogStart = function()
-	watchdog.idle           = 0
+	watchdog.idle = 0
 	watchdog.keyStateUsable = altHeld()
 
 	if not watchdog.timer then
@@ -564,8 +565,12 @@ hl.bind("ALT + SHIFT + Tab", switchStep(-1))
 -- gone, so "ALT + Alt_L" never matches — measured, it fired exactly zero times.
 -- Without a modifier they fire on every ALT release; switchCommit is a no-op
 -- when no switcher is open, and non_consuming keeps a bare ALT reaching the app.
-hl.bind("Alt_L", function() switchCommit() end, { release = true, non_consuming = true })
-hl.bind("Alt_R", function() switchCommit() end, { release = true, non_consuming = true })
+hl.bind("Alt_L", function()
+	switchCommit()
+end, { release = true, non_consuming = true })
+hl.bind("Alt_R", function()
+	switchCommit()
+end, { release = true, non_consuming = true })
 
 -- Workspace vor/zurück inkl. leerer (vormals `exec, hyprctl dispatch workspace r±1`)
 hl.bind(mainMod .. " + N", hl.dsp.focus({ workspace = "r+1" }))
