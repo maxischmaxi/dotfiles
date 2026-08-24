@@ -49,7 +49,6 @@ vim.pack.add({
 	"https://github.com/nvim-lua/plenary.nvim",
 	"https://github.com/BurntSushi/ripgrep",
 	"https://github.com/nvim-telescope/telescope-fzf-native.nvim",
-	"https://github.com/nvim-telescope/telescope-ui-select.nvim",
 	"https://github.com/nvim-treesitter/nvim-treesitter",
 	"https://github.com/nvim-treesitter/nvim-treesitter-textobjects",
 	"https://github.com/windwp/nvim-ts-autotag",
@@ -73,6 +72,8 @@ vim.pack.add({
 	"https://github.com/mg979/vim-visual-multi",
 	"https://github.com/derektata/lorem.nvim",
 	"https://github.com/maxischmaxi/inc-select.nvim",
+	"https://github.com/MunifTanjim/nui.nvim",
+	"https://github.com/folke/noice.nvim",
 })
 
 local hooks = function(ev)
@@ -220,6 +221,28 @@ require("inc-select").setup()
 
 require("custom.auto_set_tabstop")
 
+require("dressing").setup({
+	input = {
+		relative = "cursor",
+		prefer_width = 60,
+	},
+	select = {
+		backend = { "telescope", "builtin" },
+	},
+})
+
+require("noice").setup({
+	lsp = {
+		-- blink.cmp renders signature help itself
+		signature = { enabled = false },
+	},
+	presets = {
+		-- keep / and ? at the bottom, only : becomes the centered popup
+		bottom_search = true,
+		long_message_to_split = true,
+	},
+})
+
 vim.g.conflict_marker_begin = "^<<<<<<<\\+ .*$"
 vim.g.conflict_marker_common_ancestors = "^|||||||\\+ .*$"
 vim.g.conflict_marker_end = "^>>>>>>>\\+ .*$"
@@ -239,6 +262,8 @@ local Rule = require("nvim-autopairs.rule")
 npairs.setup({
 	check_ts = true,
 	enable_check_bracket_line = false,
+	-- the dressing prompt is a one-line input buffer, pairing there is only in the way
+	disable_filetype = { "TelescopePrompt", "spectre_panel", "snacks_picker_input", "DressingInput" },
 	ts_config = {
 		lua = { "string" },
 		javascript = { "template_string" },
@@ -365,6 +390,8 @@ require("nvim-treesitter").install({
 	"gleam",
 	"json",
 	"html",
+	-- noice highlights the search cmdline with this one
+	"regex",
 })
 
 vim.api.nvim_create_autocmd("FileType", {
@@ -492,14 +519,10 @@ require("telescope").setup({
 			override_file_sorter = true,
 			case_mode = "smart_case",
 		},
-		["ui-select"] = {
-			require("telescope.themes").get_dropdown(),
-		},
 	},
 })
 
 require("telescope").load_extension("fzf")
-require("telescope").load_extension("ui-select")
 
 set("n", "<leader>sf", require("telescope.builtin").find_files, { desc = "[S]earch [F]iles" })
 set("n", "<leader>sg", require("telescope.builtin").live_grep, { desc = "[S]earch by [G]rep" })

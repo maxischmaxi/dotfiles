@@ -119,6 +119,8 @@ hl.on("hyprland.start", function()
 	-- Zieht graphical-session.target hoch -> xdg-desktop-portal(-hyprland) -> Screen-Sharing
 	hl.exec_cmd("systemctl --user start hyprland-session.target")
 	hl.exec_cmd("swaync")
+	-- Reads ~/.config/hypr/hyprpaper.conf. Draws over misc:background_color below.
+	hl.exec_cmd("hyprpaper")
 	hl.exec_cmd("wl-paste --watch cliphist store")
 	hl.exec_cmd("systemctl --user start hypridle.service")
 end)
@@ -220,11 +222,11 @@ hl.config({
 		rounding = 10,
 		rounding_power = 2,
 		active_opacity = 1.0,
-		inactive_opacity = 1.0,
+		inactive_opacity = 0.9,
 		-- Focus marker instead of a border: everything inactive gets darkened.
 		-- dim_strength is 0..1, upstream default is 0.5.
 		dim_inactive = true,
-		dim_strength = 0.4,
+		dim_strength = 0.3,
 		shadow = {
 			-- Off in every layout mode: render_power 3 is the priciest step and
 			-- telling windows apart is the dimming's job now.
@@ -256,8 +258,8 @@ hl.config({
 	misc = {
 		force_default_wallpaper = 0,
 		disable_hyprland_logo = true,
-		-- Schwarzer Desktop-Hintergrund direkt vom Compositor (kein Wallpaper-Tool nötig).
-		-- Braucht disable_hyprland_logo = true (oben gesetzt).
+		-- Fallback behind the wallpaper: what shows before hyprpaper is up, or if
+		-- it dies. Needs disable_hyprland_logo = true (set above).
 		background_color = "rgb(000000)",
 		-- VRR nur im Fullscreen. Nutzt Adaptive Sync des XG32UCDS bei Games/Video,
 		-- vermeidet aber das Helligkeitsflackern, das manche Panels im Desktop-
