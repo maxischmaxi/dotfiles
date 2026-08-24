@@ -45,7 +45,7 @@ local layoutMode = "default"
 -- gaps_in sits on every window edge, so windows end up 2*gaps_in apart;
 -- gaps_out only applies to edges that touch the monitor.
 local layouts = {
-	default = { layout = "dwindle", gaps_in = 4, gaps_out = 0 },
+	default = { layout = "dwindle", gaps_in = 0, gaps_out = 0 },
 	-- floating has no layout of its own: the catch-all window rule at the
 	-- bottom is what floats the windows, dwindle only catches what it misses.
 	floating = { layout = "dwindle", gaps_in = 0, gaps_out = 0 },
