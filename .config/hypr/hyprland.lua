@@ -33,13 +33,31 @@ local mainMod = "SUPER"
 
 ------------------------------------------------------------------
 -- Layout-Modus
--- "scrolling" = niri-style tape, "floating" = every window floats.
--- Only knob to flip: change the value, then `hyprctl reload`.
--- It switches general.layout, the catch-all float rule, shadows and
--- the layout-specific keybinds further down in one go.
+-- The one knob to flip: set it, then `hyprctl reload`.
+--   "default"   = stock Hyprland tiling (dwindle)
+--   "floating"  = every window floats, keyboard snapping/scaling instead
+--   "scrolling" = niri-style tape
+-- It switches general.layout, the gaps, the catch-all float rule and the
+-- layout-specific keybinds further down in one go.
 ------------------------------------------------------------------
-local layoutMode = "floating"
+local layoutMode = "default"
+
+-- gaps_in sits on every window edge, so windows end up 2*gaps_in apart;
+-- gaps_out only applies to edges that touch the monitor.
+local layouts = {
+	default = { layout = "dwindle", gaps_in = 4, gaps_out = 0 },
+	-- floating has no layout of its own: the catch-all window rule at the
+	-- bottom is what floats the windows, dwindle only catches what it misses.
+	floating = { layout = "dwindle", gaps_in = 0, gaps_out = 0 },
+	scrolling = { layout = "scrolling", gaps_in = 0, gaps_out = 0 },
+}
+-- A typo must not take the session down with it.
+if not layouts[layoutMode] then
+	layoutMode = "default"
+end
+local mode = layouts[layoutMode]
 local floating = layoutMode == "floating"
+local tiling = layoutMode == "default"
 
 ------------------------------------------------------------------
 -- Monitore (Namen/Modes via `hyprctl monitors`)
@@ -107,21 +125,22 @@ end)
 
 -- Raise on focus: Hyprland keeps the floating stack as it is when focus moves,
 -- so a window can stay buried under the one you just left. There is no config
--- option for it, so do it on every focus change. No-op for tiled windows.
-hl.on("window.active", function()
-	hl.dispatch(hl.dsp.window.bring_to_top())
-end)
+-- option for it, so do it on every focus change. Only floating mode has a
+-- stack worth reordering, so the other modes do not register the handler.
+if floating then
+	hl.on("window.active", function()
+		hl.dispatch(hl.dsp.window.bring_to_top())
+	end)
+end
 
 ------------------------------------------------------------------
 -- Look & Feel + Input
 ------------------------------------------------------------------
 hl.config({
 	general = {
-		-- floating mode still needs a tiling layout underneath for anything the
-		-- catch-all rule misses; dwindle is the harmless fallback.
-		layout = floating and "dwindle" or "scrolling",
-		gaps_in = 0,
-		gaps_out = 0,
+		layout = mode.layout,
+		gaps_in = mode.gaps_in,
+		gaps_out = mode.gaps_out,
 		-- No borders: focus is marked by dimming the inactive windows instead
 		-- (decoration.dim_inactive below). The colors stay in case border_size
 		-- ever goes above 0 again — hardcoded so the matugen refresh cannot
@@ -205,7 +224,7 @@ hl.config({
 		-- Focus marker instead of a border: everything inactive gets darkened.
 		-- dim_strength is 0..1, upstream default is 0.5.
 		dim_inactive = true,
-		dim_strength = 0.2,
+		dim_strength = 0.4,
 		shadow = {
 			-- Off in every layout mode: render_power 3 is the priciest step and
 			-- telling windows apart is the dimming's job now.
@@ -328,7 +347,6 @@ hl.bind(mainMod .. " + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + M", hl.dsp.exit())
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V", hl.dsp.window.float())
-hl.bind(mainMod .. " + O", hl.dsp.layout("togglesplit"))
 hl.bind("ALT + SPACE", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("nwg-bar -i 64"))
 hl.bind(mainMod .. " + G", hl.dsp.group.toggle())
@@ -592,8 +610,9 @@ hl.bind(mainMod .. " + down", hl.dsp.window.resize({ x = 0, y = 40, relative = t
 
 -- Horizontal focus, step = 1 (right) or -1 (left). Hyprland's own direction
 -- focus wraps around at the edge, which is exactly what we don't want: at the
--- outer edge this jumps to the neighbouring workspace instead — and only if
--- that one actually holds windows, otherwise nothing happens at all.
+-- outer edge this carries on into the next workspace in that direction that
+-- actually holds windows — empty ones in between are skipped, and if there is
+-- nothing left over there, nothing happens at all.
 local function focusHorizontal(step)
 	return function()
 		local ws = hl.get_active_workspace()
@@ -608,7 +627,9 @@ local function focusHorizontal(step)
 			local acy = active.at.y + active.size.y / 2
 			local best, bestScore
 			for _, w in ipairs(hl.get_workspace_windows(ws)) do
-				if w.address ~= active.address then
+				-- skip the inactive tabs of a group: they sit on top of each other
+				-- and focusing one you cannot see is not what the keypress meant.
+				if w.address ~= active.address and w.mapped and not w.hidden then
 					local dx = (w.at.x + w.size.x / 2 - acx) * step
 					if dx > 1 then
 						local score = dx + math.abs(w.at.y + w.size.y / 2 - acy) * 0.5
@@ -623,20 +644,34 @@ local function focusHorizontal(step)
 				return
 			end
 		end
-		-- edge reached: only cross over if the neighbour has windows
+		-- Edge reached: nearest workspace in that direction that holds windows.
+		-- Distance, not id + step: empty workspaces get cleaned up by Hyprland,
+		-- so 1 and 3 are neighbours once 2 has been emptied.
 		if ws.special or ws.id < 1 then
 			return
 		end
-		local target = hl.get_workspace(ws.id + step)
-		if not target or target.windows < 1 then
+		local mon = ws.monitor and ws.monitor.name
+		local target, targetDist
+		for _, cand in ipairs(hl.get_workspaces()) do
+			local dist = (cand.id - ws.id) * step
+			local sameMon = not mon or not cand.monitor or cand.monitor.name == mon
+			if dist > 0 and cand.windows > 0 and not cand.special and sameMon then
+				if not targetDist or dist < targetDist then
+					target, targetDist = cand, dist
+				end
+			end
+		end
+		if not target then
 			return
 		end
 		-- land on the window closest to the edge we came from
 		local edge, edgeScore
 		for _, w in ipairs(hl.get_workspace_windows(target)) do
-			local score = (w.at.x + w.size.x / 2) * step
-			if not edgeScore or score < edgeScore then
-				edge, edgeScore = w, score
+			if w.mapped and not w.hidden then
+				local score = (w.at.x + w.size.x / 2) * step
+				if not edgeScore or score < edgeScore then
+					edge, edgeScore = w, score
+				end
 			end
 		end
 		hl.dispatch(hl.dsp.focus({ workspace = target }))
@@ -646,16 +681,10 @@ local function focusHorizontal(step)
 	end
 end
 
--- In scrolling mode h/l scroll the tape (focus drags the view along and wraps
--- at the end instead of leaving for the neighbouring monitor); in floating they
--- walk the windows and then carry on across workspaces.
-if floating then
-	hl.bind(mainMod .. " + h", focusHorizontal(-1))
-	hl.bind(mainMod .. " + l", focusHorizontal(1))
-else
-	hl.bind(mainMod .. " + h", hl.dsp.layout("focus l"))
-	hl.bind(mainMod .. " + l", hl.dsp.layout("focus r"))
-end
+-- Same in every layout mode: walk the windows left/right, and once there is
+-- none left in that direction carry on into the neighbouring workspace.
+hl.bind(mainMod .. " + h", focusHorizontal(-1))
+hl.bind(mainMod .. " + l", focusHorizontal(1))
 -- j/k only move focus down/up. Workspaces live on SUPER+1..0 and N/P now.
 hl.bind(mainMod .. " + j", hl.dsp.focus({ direction = "down" }))
 hl.bind(mainMod .. " + k", hl.dsp.focus({ direction = "up" }))
@@ -765,9 +794,33 @@ if floating then
 	hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.move({ x = 0, y = 60, relative = true }))
 	hl.bind(mainMod .. " + R", hl.dsp.window.center())
 	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
+elseif tiling then
+	hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
+	-- dwindle splits the focused tile; O flips the split axis of the current one
+	hl.bind(mainMod .. " + O", hl.dsp.layout("togglesplit"))
+	-- SHIFT+hjkl swaps the two windows, CTRL+hjkl pulls the window out and
+	-- re-inserts it on that side (both cross monitors at the outer edge).
+	hl.bind(mainMod .. " + SHIFT + h", hl.dsp.window.swap({ direction = "left" }))
+	hl.bind(mainMod .. " + SHIFT + l", hl.dsp.window.swap({ direction = "right" }))
+	hl.bind(mainMod .. " + SHIFT + k", hl.dsp.window.swap({ direction = "up" }))
+	hl.bind(mainMod .. " + SHIFT + j", hl.dsp.window.swap({ direction = "down" }))
+	hl.bind(mainMod .. " + CTRL + h", hl.dsp.window.move({ direction = "left" }))
+	hl.bind(mainMod .. " + CTRL + l", hl.dsp.window.move({ direction = "right" }))
+	hl.bind(mainMod .. " + CTRL + k", hl.dsp.window.move({ direction = "up" }))
+	hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.move({ direction = "down" }))
+	-- pseudotile: the window keeps its own size inside its tile instead of
+	-- being stretched to fill it.
+	hl.bind(mainMod .. " + R", hl.dsp.window.pseudo())
+	-- pin only bites on floating windows — SUPER+V first, then this.
+	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
+	-- +/- widen/narrow the active tile, same step as the arrow keys above
+	hl.bind(mainMod .. " + plus", hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
+	hl.bind(mainMod .. " + minus", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
+	hl.bind(mainMod .. " + KP_Add", hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
+	hl.bind(mainMod .. " + KP_Subtract", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
 else
 	hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
-	-- Scrolling-Layout: Spalte verschieben / Ansicht ohne Fokuswechsel / Breiten
+	-- scrolling: move the column / pan the view without moving focus / widths
 	hl.bind(mainMod .. " + SHIFT + h", hl.dsp.layout("swapcol l"))
 	hl.bind(mainMod .. " + SHIFT + l", hl.dsp.layout("swapcol r"))
 	hl.bind(mainMod .. " + CTRL + h", hl.dsp.layout("move -col"))
@@ -789,15 +842,10 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Mausrad: durchs Band scrollen (floating: Fokus nach links/rechts);
--- mit SHIFT stattdessen Workspaces wechseln
-if floating then
-	hl.bind(mainMod .. " + mouse_down", focusHorizontal(1))
-	hl.bind(mainMod .. " + mouse_up", focusHorizontal(-1))
-else
-	hl.bind(mainMod .. " + mouse_down", hl.dsp.layout("focus r"))
-	hl.bind(mainMod .. " + mouse_up", hl.dsp.layout("focus l"))
-end
+-- Mouse wheel moves focus sideways, same as h/l; with SHIFT it switches
+-- workspaces instead.
+hl.bind(mainMod .. " + mouse_down", focusHorizontal(1))
+hl.bind(mainMod .. " + mouse_up", focusHorizontal(-1))
 hl.bind(mainMod .. " + SHIFT + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + SHIFT + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 
