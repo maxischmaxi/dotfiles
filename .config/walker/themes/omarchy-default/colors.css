@@ -1,0 +1,10 @@
+/* Colors for the walker theme. Omarchy generates this per theme from
+   default/themed/walker.css.tpl; these are the same six variables filled with
+   the tokyonight values already used in rofi and gtk. */
+
+@define-color selected-text #7dcfff;
+@define-color text #e0eafc;
+@define-color base #1a1b26;
+@define-color border #e0eafc;
+@define-color foreground #e0eafc;
+@define-color background #1a1b26;

@@ -1,0 +1,5 @@
+# Elephant autodetects uwsm and would launch every app through `uwsm-app --`.
+# This session runs Hyprland directly, not under uwsm, where that prefix
+# silently swallows GUI launches — verified: `uwsm-app -- ghostty` maps no
+# window. Turning autodetect off makes elephant exec apps itself.
+auto_detect_launch_prefix = false

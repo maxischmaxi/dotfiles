@@ -27,8 +27,10 @@ end
 -- Programme / Variablen
 ------------------------------------------------------------------
 local terminal = "ghostty"
-local fileManager = "thunar"
-local menu = "rofi -show drun"
+local fileManager = "nautilus --new-window"
+-- Walker + its elephant backend, see scripts/walker.sh. rofi stays
+-- installed as a fallback: swap this line back to "rofi -show drun".
+local menu = "~/.config/hypr/scripts/walker.sh"
 local mainMod = "SUPER"
 
 ------------------------------------------------------------------
@@ -103,7 +105,7 @@ hl.workspace_rule({ workspace = "1", monitor = "desc:ASUSTek COMPUTER INC XG32UC
 hl.exec_cmd('gsettings set org.gnome.desktop.interface color-scheme "prefer-dark"')
 hl.exec_cmd('gsettings set org.gnome.desktop.interface gtk-theme "Tokyonight-Dark"')
 hl.exec_cmd('gsettings set org.gnome.desktop.interface icon-theme "Tokyonight-Moon"')
--- "Terminal hier oeffnen" in GTK-Apps (Thunar & Co). Stand vorher auf
+-- "Terminal hier oeffnen" in GTK-Apps (Nautilus & Co). Stand vorher auf
 -- xdg-terminal-exec, das gar nicht installiert ist — war also kaputt.
 hl.exec_cmd('gsettings set org.gnome.desktop.default-applications.terminal exec "ghostty"')
 hl.exec_cmd('gsettings set org.gnome.desktop.default-applications.terminal exec-arg "-e"')
@@ -122,6 +124,12 @@ hl.on("hyprland.start", function()
 	-- Reads ~/.config/hypr/hyprpaper.conf. Draws over misc:background_color below.
 	hl.exec_cmd("hyprpaper")
 	hl.exec_cmd("wl-paste --watch cliphist store")
+	-- Auto-mounts removable drives so they show up in the file manager
+	-- sidebar without a manual mount.
+	hl.exec_cmd("udiskie --automount --no-notify --no-tray")
+	-- Prewarm the launcher: elephant indexes desktop files, walker keeps a
+	-- gapplication service around, so the first ALT+SPACE is not a cold start.
+	hl.exec_cmd("~/.config/hypr/scripts/walker-restart.sh")
 	hl.exec_cmd("systemctl --user start hypridle.service")
 end)
 
@@ -348,6 +356,7 @@ hl.bind(mainMod .. " + Return", hl.dsp.window.fullscreen({ mode = "fullscreen" }
 hl.bind(mainMod .. " + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + M", hl.dsp.exit())
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
+hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exec_cmd("~/.config/hypr/scripts/filemanager-cwd.sh"))
 hl.bind(mainMod .. " + V", hl.dsp.window.float())
 hl.bind("ALT + SPACE", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("nwg-bar -i 64"))
@@ -912,6 +921,25 @@ end
 hl.window_rule({ match = { class = "^(com\\.mitchellh\\.ghostty)$" }, size = "1920 1166" })
 hl.window_rule({ match = { class = "^(com\\.mitchellh\\.ghostty)$" }, center = true })
 
+-- Sushi quick look (Space in Nautilus): a preview window, so it floats and
+-- centres instead of tiling, and it renders at full opacity — a dimmed preview
+-- defeats the point. Sizes to omarchy's floating-window default.
+hl.window_rule({ match = { class = "^(org\\.gnome\\.NautilusPreviewer)$" }, float = true })
+hl.window_rule({ match = { class = "^(org\\.gnome\\.NautilusPreviewer)$" }, center = true })
+hl.window_rule({ match = { class = "^(org\\.gnome\\.NautilusPreviewer)$" }, size = "875 600" })
+hl.window_rule({ match = { class = "^(org\\.gnome\\.NautilusPreviewer)$" }, opacity = "1 1" })
+hl.window_rule({ match = { class = "^(org\\.gnome\\.NautilusPreviewer)$" }, no_dim = true })
+
+-- GTK file chooser dialogs carry the Nautilus class but are dialogs, not the
+-- app window.
+hl.window_rule({
+	match = {
+		class = "^(org\\.gnome\\.Nautilus)$",
+		title = "^(Open.*Files?|Open [F|f]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to [open|save].*|[C|c]hoose.*)",
+	},
+	float = true,
+})
+
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, float = true })
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, no_anim = true })
 
@@ -950,5 +978,9 @@ hl.window_rule({ match = { title = "^meet.google.com hat ein Fenster freigegeben
 -- Layer Rules
 ------------------------------------------------------------------
 -- blur greift nur, wenn decoration.blur.enabled wieder auf true steht (aktuell aus).
+-- Omarchy ships this one as apps/walker.conf: the launcher should appear
+-- instantly, an open/close animation only makes it feel sluggish.
+hl.layer_rule({ match = { namespace = "walker" }, no_anim = true })
+
 hl.layer_rule({ match = { namespace = "rofi" }, blur = true })
 hl.layer_rule({ match = { namespace = "rofi" }, ignore_alpha = 0.3 })
