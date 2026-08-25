@@ -609,9 +609,55 @@ hl.bind(mainMod .. " + SHIFT + N", hl.dsp.window.move({ workspace = "r+1" }))
 hl.bind(mainMod .. " + SHIFT + P", hl.dsp.window.move({ workspace = "r-1" }))
 
 -- Screenshots / Screencast
-hl.bind("CTRL + ALT + 4", hl.dsp.exec_cmd('grim -g "$(slurp)" - | swappy -f -'))
-hl.bind("Print", hl.dsp.exec_cmd("grim - | swappy -f -"))
-hl.bind("CTRL + ALT + 5", hl.dsp.exec_cmd("~/.config/hypr/scripts/record-region.sh"))
+-- Capture bindings, omarchy's layout. The old grim|swappy one-liners were:
+--   CTRL+ALT+4  grim -g "$(slurp)" - | swappy -f -
+--   Print       grim - | swappy -f -
+local scripts = "~/.config/hypr/scripts/"
+hl.bind("Print", hl.dsp.exec_cmd(scripts .. "capture-screenshot.sh"))
+hl.bind("ALT + Print", hl.dsp.exec_cmd(scripts .. "record-region.sh"))
+hl.bind("SUPER + Print", hl.dsp.exec_cmd("pkill hyprpicker || hyprpicker -a"))
+hl.bind("SUPER + CTRL + Print", hl.dsp.exec_cmd(scripts .. "capture-text.sh"))
+hl.bind("SUPER + SHIFT + Print", hl.dsp.exec_cmd(scripts .. "capture-qr.sh"))
+
+-- Keyboard control for the slurp region picker (see scripts/capture-region.sh).
+-- The binds live exactly as long as a selection layer is on screen (slurp
+-- opens one per monitor), so they cannot leak or get stuck.
+-- Unbinding by key would take a same-key binding out of the rest of this
+-- config with it, so each handle is kept and removed individually.
+local selection_layers = 0
+local selection_binds = {}
+
+hl.on("layer.opened", function(layer)
+	if layer.namespace == "selection" then
+		selection_layers = selection_layers + 1
+		if selection_layers == 1 then
+			selection_binds = {
+				hl.bind("RETURN", hl.dsp.exec_cmd(scripts .. "capture-region.sh --take-window")),
+				hl.bind("CTRL + RETURN", hl.dsp.exec_cmd(scripts .. "capture-region.sh --take-fullscreen")),
+				hl.bind("TAB", hl.dsp.exec_cmd(scripts .. "capture-region.sh --select-window next")),
+				hl.bind("CTRL + TAB", hl.dsp.exec_cmd(scripts .. "capture-region.sh --select-window prev")),
+			}
+			for _, direction in ipairs({ "left", "right", "up", "down" }) do
+				table.insert(
+					selection_binds,
+					hl.bind(direction:upper(), hl.dsp.exec_cmd(scripts .. "capture-region.sh --select-window " .. direction))
+				)
+			end
+		end
+	end
+end)
+
+hl.on("layer.closed", function(layer)
+	if layer.namespace == "selection" and selection_layers > 0 then
+		selection_layers = selection_layers - 1
+		if selection_layers == 0 then
+			for _, keybind in ipairs(selection_binds) do
+				keybind:unbind()
+			end
+			selection_binds = {}
+		end
+	end
+end)
 
 -- Aktives Fenster größer/kleiner
 hl.bind(mainMod .. " + left", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
@@ -940,6 +986,12 @@ hl.window_rule({
 	float = true,
 })
 
+-- Screenshot editor. Omarchy floats and centers it (default/hypr/apps/system.lua):
+-- it opens with the capture already loaded, so tiling it just shoves the
+-- window you screenshotted out of the way.
+hl.window_rule({ match = { class = "^(dev\\.tensaku\\.Tensaku)$" }, float = true })
+hl.window_rule({ match = { class = "^(dev\\.tensaku\\.Tensaku)$" }, center = true })
+
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, float = true })
 hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, no_anim = true })
 
@@ -980,6 +1032,10 @@ hl.window_rule({ match = { title = "^meet.google.com hat ein Fenster freigegeben
 -- blur greift nur, wenn decoration.blur.enabled wieder auf true steht (aktuell aus).
 -- Omarchy ships this one as apps/walker.conf: the launcher should appear
 -- instantly, an open/close animation only makes it feel sluggish.
+-- No fade on the slurp selection overlay: it sits over a frozen screen,
+-- an animation there only shows up as a flash.
+hl.layer_rule({ match = { namespace = "selection" }, no_anim = true, animation = "none" })
+
 hl.layer_rule({ match = { namespace = "walker" }, no_anim = true })
 
 hl.layer_rule({ match = { namespace = "rofi" }, blur = true })
