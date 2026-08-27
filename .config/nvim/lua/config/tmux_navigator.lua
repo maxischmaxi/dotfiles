@@ -1,3 +1,5 @@
+local M = {}
+
 local function tmux_yabai_or_split_switch(wincmd, direction)
 	local previous_winnr = vim.api.nvim_get_current_win()
 	vim.cmd("silent! wincmd " .. wincmd)
@@ -8,6 +10,8 @@ local function tmux_yabai_or_split_switch(wincmd, direction)
 		end
 	end
 end
+
+M.tmux_yabai_or_split_switch = tmux_yabai_or_split_switch
 
 vim.api.nvim_create_autocmd("FileType", {
 	pattern = "oil",
@@ -39,3 +43,5 @@ end, { silent = true })
 vim.keymap.set("n", "<C-l>", function()
 	tmux_yabai_or_split_switch("l", "east")
 end, { silent = true })
+
+return M
