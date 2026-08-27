@@ -26,9 +26,16 @@ vim.o.tabstop = 4
 vim.o.list = true
 vim.o.listchars = "tab:→ ,lead:·,trail:·,nbsp:␣,extends:›,precedes:‹"
 vim.o.swapfile = false
+vim.o.inccommand = "split"
+vim.o.splitright = true
+vim.o.splitbelow = true
+vim.o.confirm = true
 vim.g.mapleader = " "
 vim.o.signcolumn = "yes"
 vim.g.loaded_perl_provider = 0
+vim.g.loaded_ruby_provider = 0
+vim.g.loaded_node_provider = 0
+vim.g.loaded_python3_provider = 0
 if vim.g.have_nerd_font == nil then
 	vim.g.have_nerd_font = true
 end
@@ -47,23 +54,25 @@ vim.pack.add({
 	"https://github.com/stevearc/oil.nvim",
 	"https://github.com/nvim-telescope/telescope.nvim",
 	"https://github.com/nvim-lua/plenary.nvim",
-	"https://github.com/BurntSushi/ripgrep",
 	"https://github.com/nvim-telescope/telescope-fzf-native.nvim",
 	"https://github.com/nvim-treesitter/nvim-treesitter",
 	"https://github.com/nvim-treesitter/nvim-treesitter-textobjects",
+	"https://github.com/nvim-treesitter/nvim-treesitter-context",
 	"https://github.com/windwp/nvim-ts-autotag",
 	"https://github.com/kylechui/nvim-surround",
 	"https://github.com/rhysd/conflict-marker.vim",
 	"https://github.com/windwp/nvim-autopairs",
-	"https://github.com/nvim-pack/nvim-spectre",
+	"https://github.com/MagicDuck/grug-far.nvim",
 	"https://github.com/stevearc/conform.nvim",
 	"https://github.com/folke/tokyonight.nvim",
 	"https://github.com/neovim/nvim-lspconfig",
 	"https://github.com/mason-org/mason.nvim",
 	"https://github.com/WhoIsSethDaniel/mason-tool-installer.nvim",
+	"https://github.com/b0o/SchemaStore.nvim",
 	"https://github.com/rafamadriz/friendly-snippets",
 	"https://github.com/folke/lazydev.nvim",
-	{ src = "https://github.com/saghen/blink.cmp", version = "v1.7.0" },
+	-- "*" resolves to the highest published tag, so this tracks the latest release
+	{ src = "https://github.com/saghen/blink.cmp", version = vim.version.range("*") },
 	"https://github.com/nvim-tree/nvim-web-devicons",
 	"https://github.com/nvim-lualine/lualine.nvim",
 	"https://github.com/lewis6991/gitsigns.nvim",
@@ -74,6 +83,12 @@ vim.pack.add({
 	"https://github.com/maxischmaxi/inc-select.nvim",
 	"https://github.com/MunifTanjim/nui.nvim",
 	"https://github.com/folke/noice.nvim",
+	-- debugging: nvim-nio is a hard dependency of dap-ui
+	"https://github.com/mfussenegger/nvim-dap",
+	"https://github.com/nvim-neotest/nvim-nio",
+	"https://github.com/rcarriga/nvim-dap-ui",
+	"https://github.com/theHamsta/nvim-dap-virtual-text",
+	"https://github.com/leoluz/nvim-dap-go",
 })
 
 local hooks = function(ev)
@@ -100,15 +115,17 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 })
 
 vim.api.nvim_create_autocmd("LspAttach", {
+	group = vim.api.nvim_create_augroup("custom-lsp-document-color", { clear = true }),
 	callback = function(ev)
 		local client = vim.lsp.get_client_by_id(ev.data.client_id)
-		if client:supports_method("textDocument/documentColor", ev.buf) then
+		if client and client:supports_method("textDocument/documentColor", ev.buf) then
 			vim.lsp.document_color.enable(true, { bufnr = ev.buf })
 		end
 	end,
 })
 
 vim.api.nvim_create_autocmd("LspNotify", {
+	group = vim.api.nvim_create_augroup("custom-lsp-fold-imports", { clear = true }),
 	callback = function(ev)
 		if ev.data.method == "textDocument/didOpen" then
 			vim.lsp.foldclose("imports", vim.fn.bufwinid(ev.buf))
@@ -149,7 +166,9 @@ set("n", "<leader>+", ':exe "vertical resize " . (winwidth(0) * 4/1)<CR>', { sil
 set("n", "<leader>-", ':exe "vertical resize " . (winwidth(0) * 1/4)<CR>', { silent = true })
 set("n", "<C-b>", "<CMD>Oil<CR>", { desc = "Open Oil" })
 
-set("n", "<leader>m", require("treesj").toggle, { desc = "[M]erge or [S]plit code block" })
+set("n", "<leader>m", function()
+	require("treesj").toggle()
+end, { desc = "[M]erge or [S]plit code block" })
 set("n", "<leader>M", function()
 	require("treesj").toggle({ split = { recursive = true } })
 end, { desc = "[M]erge or [S]plit code block (force split)" })
@@ -160,7 +179,62 @@ require("lorem").opts({
 	max_commas = 2, -- maximum 2 commas per sentence
 	debounce_ms = 200, -- default debounce time in milliseconds
 })
-require("gitsigns").setup()
+require("gitsigns").setup({
+	-- german layout: [ and ] are AltGr+8/9, so hunk navigation lives on <leader>g
+	-- and follows the existing <leader>{scope}{n,p} pattern (dn/dp, cn/cp)
+	on_attach = function(bufnr)
+		local gs = require("gitsigns")
+		local map = function(mode, keys, func, desc)
+			vim.keymap.set(mode, keys, func, { buffer = bufnr, desc = "Git: " .. desc })
+		end
+
+		map("n", "<leader>gn", function()
+			-- in a diff buffer the plugin has no hunks, fall back to vim's own ]c
+			if vim.wo.diff then
+				vim.cmd.normal({ "]c", bang = true })
+			else
+				gs.nav_hunk("next")
+			end
+		end, "Next hunk")
+
+		map("n", "<leader>gp", function()
+			if vim.wo.diff then
+				vim.cmd.normal({ "[c", bang = true })
+			else
+				gs.nav_hunk("prev")
+			end
+		end, "Previous hunk")
+
+		map("n", "<leader>gs", gs.stage_hunk, "Stage hunk")
+		map("n", "<leader>gr", gs.reset_hunk, "Reset hunk")
+		map("v", "<leader>gs", function()
+			gs.stage_hunk({ vim.fn.line("."), vim.fn.line("v") })
+		end, "Stage selected lines")
+		map("v", "<leader>gr", function()
+			gs.reset_hunk({ vim.fn.line("."), vim.fn.line("v") })
+		end, "Reset selected lines")
+
+		map("n", "<leader>gS", gs.stage_buffer, "Stage buffer")
+		map("n", "<leader>gR", gs.reset_buffer, "Reset buffer")
+		map("n", "<leader>gv", gs.preview_hunk, "Preview hunk (float)")
+		map("n", "<leader>gV", gs.preview_hunk_inline, "Preview hunk (inline)")
+		map("n", "<leader>gb", function()
+			gs.blame_line({ full = true })
+		end, "Blame line (full)")
+		map("n", "<leader>gB", gs.toggle_current_line_blame, "Toggle inline blame")
+		map("n", "<leader>gd", gs.diffthis, "Diff against index")
+		map("n", "<leader>gD", function()
+			gs.diffthis("@")
+		end, "Diff against HEAD")
+		map("n", "<leader>gx", gs.toggle_deleted, "Toggle deleted lines")
+
+		-- ih = "inner hunk", works with d/y/c like any other text object
+		map({ "o", "x" }, "ih", gs.select_hunk, "Select hunk")
+	end,
+})
+
+-- fugitive: the status buffer is the entry point for everything gitsigns can't do
+set("n", "<leader>gg", "<cmd>Git<CR>", { desc = "Git: fugitive status" })
 
 require("lualine").setup({
 	options = {
@@ -235,6 +309,7 @@ require("noice").setup({
 	lsp = {
 		-- blink.cmp renders signature help itself
 		signature = { enabled = false },
+		hover = { silent = true },
 	},
 	presets = {
 		-- keep / and ? at the bottom, only : becomes the centered popup
@@ -263,7 +338,7 @@ npairs.setup({
 	check_ts = true,
 	enable_check_bracket_line = false,
 	-- the dressing prompt is a one-line input buffer, pairing there is only in the way
-	disable_filetype = { "TelescopePrompt", "spectre_panel", "snacks_picker_input", "DressingInput" },
+	disable_filetype = { "TelescopePrompt", "grug-far", "snacks_picker_input", "DressingInput" },
 	ts_config = {
 		lua = { "string" },
 		javascript = { "template_string" },
@@ -282,18 +357,24 @@ npairs.add_rules({
 require("nvim-ts-autotag").setup()
 require("nvim-surround").setup()
 
-require("spectre").setup({
-	replace_engine = {
-		["sed"] = {
-			cmd = "sed",
-			args = vim.fn.has("mac") == 1 and { "-i", "", "-E" } or { "-i", "-E" },
-		},
-	},
+require("grug-far").setup({
+	-- ripgrep is already a hard dependency of telescope's live_grep here
+	engine = "ripgrep",
+	windowCreationCommand = "tabnew %",
 })
 
 set("n", "<leader>sw", function()
-	require("spectre").toggle()
-end, { desc = "Spectre" })
+	require("grug-far").open()
+end, { desc = "[S]earch and replace [W]orkspace" })
+set("n", "<leader>sW", function()
+	require("grug-far").open({ prefills = { search = vim.fn.expand("<cword>") } })
+end, { desc = "[S]earch and replace [W]ord under cursor" })
+set("v", "<leader>sw", function()
+	require("grug-far").with_visual_selection()
+end, { desc = "[S]earch and replace visual selection" })
+set("n", "<leader>sb", function()
+	require("grug-far").open({ prefills = { paths = vim.fn.expand("%") } })
+end, { desc = "[S]earch and replace in current [B]uffer" })
 
 require("conform").setup({
 	formatters_by_ft = {
@@ -311,6 +392,15 @@ require("conform").setup({
 		odin = { "odinfmt" },
 		c = { "clang-format" },
 		cpp = { "clang-format" },
+		go = { "goimports", "gofumpt" },
+		sh = { "shfmt" },
+		bash = { "shfmt" },
+		zsh = { "shfmt" },
+		yaml = { "prettierd" },
+		toml = { "taplo" },
+		python = { "ruff_organize_imports", "ruff_format" },
+		terraform = { "terraform_fmt" },
+		hcl = { "terraform_fmt" },
 		["_"] = { "trim_whitespace" },
 	},
 	formatters = {
@@ -329,7 +419,7 @@ require("conform").setup({
 	},
 	format_on_save = function(bufnr)
 		-- these servers format themselves; the "_" formatter would otherwise shadow them
-		local lsp_formatted = { glsl = true, just = true }
+		local lsp_formatted = { glsl = true, just = true, templ = true }
 		local prefer_lsp = lsp_formatted[vim.bo[bufnr].filetype]
 		return { timeout_ms = 2000, lsp_format = prefer_lsp and "prefer" or "fallback" }
 	end,
@@ -361,15 +451,40 @@ vim.api.nvim_create_autocmd("LspAttach", {
 })
 
 vim.api.nvim_create_autocmd("BufWritePre", {
-	desc = "Format eslint on save",
-	pattern = { "*.js", "*.ts", "*.jsx", "*.tsx" },
+	desc = "Apply eslint --fix on save",
+	pattern = { "*.js", "*.ts", "*.jsx", "*.tsx", "*.mjs", "*.cjs", "*.mts", "*.cts" },
 	group = vim.api.nvim_create_augroup("FormatEslint", { clear = true }),
 	callback = function(ev)
-		vim.lsp.buf.code_action({
+		local clients = vim.lsp.get_clients({ bufnr = ev.buf, name = "eslint" })
+		if #clients == 0 then
+			return
+		end
+		local client = clients[1]
+
+		-- vim.lsp.buf.code_action{apply=true} is async and cannot be awaited, so the
+		-- old version raced the write. Resolve the action synchronously instead.
+		-- Params are built from ev.buf rather than the current window: on :wa the
+		-- buffer being written is not necessarily the one on screen.
+		local params = {
+			textDocument = vim.lsp.util.make_text_document_params(ev.buf),
+			range = {
+				["start"] = { line = 0, character = 0 },
+				["end"] = { line = 0, character = 0 },
+			},
 			context = { only = { "source.fixAll.eslint" }, diagnostics = {} },
-			apply = true,
-		})
-		vim.wait(100) -- Give LSP time to apply fixes
+		}
+
+		local res = client:request_sync("textDocument/codeAction", params, 3000, ev.buf)
+		if not res or res.err or not res.result then
+			return
+		end
+
+		for _, action in ipairs(res.result) do
+			-- eslint returns the edit inline, so no codeAction/resolve round trip needed
+			if action.edit then
+				vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
+			end
+		end
 	end,
 })
 
@@ -392,6 +507,9 @@ require("nvim-treesitter").install({
 	"html",
 	-- noice highlights the search cmdline with this one
 	"regex",
+	-- marksman + render targets
+	"markdown",
+	"markdown_inline",
 	-- config formats
 	"ini",
 	"toml",
@@ -446,6 +564,97 @@ vim.api.nvim_create_autocmd("FileType", {
 		end
 	end,
 })
+
+require("nvim-treesitter-textobjects").setup({
+	select = {
+		-- "V" for linewise objects, "v" for the rest, decided per query
+		lookahead = true,
+		selection_modes = {
+			["@function.outer"] = "V",
+			["@class.outer"] = "V",
+		},
+		include_surrounding_whitespace = false,
+	},
+	move = { set_jumps = true },
+})
+
+local ts_select = function(query, group)
+	return function()
+		require("nvim-treesitter-textobjects.select").select_textobject(query, group or "textobjects")
+	end
+end
+
+-- a=around, i=inside. f=function, c=class, a(rg)=parameter, =assignment,
+-- l=loop, n=conditional, o=comment, k=call
+local textobjects = {
+	["af"] = { "@function.outer", "Function (outer)" },
+	["if"] = { "@function.inner", "Function (inner)" },
+	["ac"] = { "@class.outer", "Class (outer)" },
+	["ic"] = { "@class.inner", "Class (inner)" },
+	["aa"] = { "@parameter.outer", "Parameter (outer)" },
+	["ia"] = { "@parameter.inner", "Parameter (inner)" },
+	["al"] = { "@loop.outer", "Loop (outer)" },
+	["il"] = { "@loop.inner", "Loop (inner)" },
+	["an"] = { "@conditional.outer", "Conditional (outer)" },
+	["in"] = { "@conditional.inner", "Conditional (inner)" },
+	["ak"] = { "@call.outer", "Call (outer)" },
+	["ik"] = { "@call.inner", "Call (inner)" },
+	["ao"] = { "@comment.outer", "Comment (outer)" },
+	["io"] = { "@comment.inner", "Comment (inner)" },
+	["a="] = { "@assignment.outer", "Assignment (outer)" },
+	["i="] = { "@assignment.inner", "Assignment (inner)" },
+	-- not "il="/"ir=": "il" already matches the loop object and would win the timeout
+	["iR"] = { "@assignment.rhs", "Assignment right-hand side" },
+	["iL"] = { "@assignment.lhs", "Assignment left-hand side" },
+}
+
+for keys, spec in pairs(textobjects) do
+	set({ "x", "o" }, keys, ts_select(spec[1]), { desc = "Textobject: " .. spec[2] })
+end
+
+local ts_move = require("nvim-treesitter-textobjects.move")
+local ts_swap = require("nvim-treesitter-textobjects.swap")
+
+-- german layout: no [ / ] motions, same <leader>{scope}{n,p} shape as dn/dp and cn/cp
+set({ "n", "x", "o" }, "<leader>fn", function()
+	ts_move.goto_next_start("@function.outer", "textobjects")
+end, { desc = "Next function start" })
+set({ "n", "x", "o" }, "<leader>fp", function()
+	ts_move.goto_previous_start("@function.outer", "textobjects")
+end, { desc = "Previous function start" })
+set({ "n", "x", "o" }, "<leader>fN", function()
+	ts_move.goto_next_end("@function.outer", "textobjects")
+end, { desc = "Next function end" })
+set({ "n", "x", "o" }, "<leader>fP", function()
+	ts_move.goto_previous_end("@function.outer", "textobjects")
+end, { desc = "Previous function end" })
+set({ "n", "x", "o" }, "<leader>Cn", function()
+	ts_move.goto_next_start("@class.outer", "textobjects")
+end, { desc = "Next class start" })
+set({ "n", "x", "o" }, "<leader>Cp", function()
+	ts_move.goto_previous_start("@class.outer", "textobjects")
+end, { desc = "Previous class start" })
+
+set("n", "<leader>an", function()
+	ts_swap.swap_next("@parameter.inner")
+end, { desc = "Swap parameter with next" })
+set("n", "<leader>ap", function()
+	ts_swap.swap_previous("@parameter.inner")
+end, { desc = "Swap parameter with previous" })
+
+require("treesitter-context").setup({
+	max_lines = 4,
+	multiline_threshold = 1,
+	trim_scope = "outer",
+	mode = "cursor",
+})
+set("n", "<leader>tc", function()
+	require("treesitter-context").toggle()
+end, { desc = "[T]oggle treesitter [C]ontext" })
+-- jump to the context line that scrolled off the top
+set("n", "<leader>tu", function()
+	require("treesitter-context").go_to_context(vim.v.count1)
+end, { desc = "Jump [U]p to context" })
 
 require("oil").setup({
 	default_file_explorer = true,
@@ -563,11 +772,49 @@ require("telescope").setup({
 
 require("telescope").load_extension("fzf")
 
-set("n", "<leader>sf", require("telescope.builtin").find_files, { desc = "[S]earch [F]iles" })
-set("n", "<leader>sg", require("telescope.builtin").live_grep, { desc = "[S]earch by [G]rep" })
-set("n", "gd", require("telescope.builtin").lsp_definitions, { desc = "[G]oto [D]efinition" })
-set("n", "gr", require("telescope.builtin").lsp_references, { desc = "[G]oto [R]eferences" })
-set("n", "gI", require("telescope.builtin").lsp_implementations, { desc = "[G]oto [I]mplementation" })
+-- require lazily so telescope.builtin is not pulled in at startup
+local pick = function(name, opts)
+	return function()
+		require("telescope.builtin")[name](opts)
+	end
+end
+
+set("n", "<leader>sf", pick("find_files"), { desc = "[S]earch [F]iles" })
+set("n", "<leader>sg", pick("live_grep"), { desc = "[S]earch by [G]rep" })
+set("n", "<leader>sh", pick("help_tags"), { desc = "[S]earch [H]elp" })
+set("n", "<leader>sk", pick("keymaps"), { desc = "[S]earch [K]eymaps" })
+set("n", "<leader>sd", pick("diagnostics"), { desc = "[S]earch [D]iagnostics" })
+set("n", "<leader>sr", pick("resume"), { desc = "[S]earch [R]esume last picker" })
+set("n", "<leader>s.", pick("oldfiles"), { desc = "[S]earch recent files" })
+set("n", "<leader>ss", pick("lsp_document_symbols"), { desc = "[S]earch document [S]ymbols" })
+set("n", "<leader>sS", pick("lsp_dynamic_workspace_symbols"), { desc = "[S]earch workspace [S]ymbols" })
+set("n", "<leader>st", pick("builtin"), { desc = "[S]earch [T]elescope pickers" })
+set("n", "<leader>sc", pick("commands"), { desc = "[S]earch [C]ommands" })
+set("n", "<leader>sm", pick("marks"), { desc = "[S]earch [M]arks" })
+set("n", "<leader>sq", pick("quickfix"), { desc = "[S]earch [Q]uickfix list" })
+set("n", "<leader>sj", pick("jumplist"), { desc = "[S]earch [J]umplist" })
+set("n", "<leader><leader>", pick("buffers"), { desc = "Find existing buffers" })
+
+-- search only inside the current buffer
+set("n", "<leader>/", function()
+	require("telescope.builtin").current_buffer_fuzzy_find(
+		require("telescope.themes").get_dropdown({ winblend = 10, previewer = false })
+	)
+end, { desc = "Fuzzy search in current buffer" })
+
+-- grep the word/selection under the cursor
+set("n", "<leader>*", pick("grep_string"), { desc = "Grep word under cursor" })
+set("v", "<leader>*", pick("grep_string"), { desc = "Grep visual selection" })
+
+set("n", "<leader>gf", pick("git_status"), { desc = "Git: status picker" })
+set("n", "<leader>gc", pick("git_commits"), { desc = "Git: commit log" })
+set("n", "<leader>gh", pick("git_bcommits"), { desc = "Git: commits for this file" })
+set("n", "<leader>gt", pick("git_branches"), { desc = "Git: branches" })
+
+set("n", "gd", pick("lsp_definitions"), { desc = "[G]oto [D]efinition" })
+set("n", "gr", pick("lsp_references"), { desc = "[G]oto [R]eferences" })
+set("n", "gI", pick("lsp_implementations"), { desc = "[G]oto [I]mplementation" })
+set("n", "gy", pick("lsp_type_definitions"), { desc = "[G]oto t[y]pe definition" })
 set("n", "<leader>rn", vim.lsp.buf.rename, { desc = "[R]e[n]ame" })
 
 -- K is taken by lsp hover, which only shows the declaration; gK gets the prose
@@ -723,7 +970,16 @@ local servers = {
 	},
 	cssls = { mason = "css-lsp" },
 	css_variables = { mason = "css-variables-language-server" },
-	cssmodules_ls = { mason = "cssmodules-language-server" },
+	cssmodules_ls = {
+		mason = "cssmodules-language-server",
+		-- it advertises hoverProvider but only ever answers null (it can do
+		-- definition/completion, not hover). noice renders hover per client instead
+		-- of aggregating, so that null became "No information available" alongside
+		-- vtsls' actual type popup.
+		on_attach = function(client)
+			client.server_capabilities.hoverProvider = false
+		end,
+	},
 	eslint = {
 		mason = "eslint-lsp",
 		settings = {
@@ -751,10 +1007,94 @@ local servers = {
 		settings = {
 			json = {
 				validate = { enable = true },
+				schemas = require("schemastore").json.schemas(),
 			},
 		},
 	},
+	yamlls = {
+		mason = "yaml-language-server",
+		settings = {
+			yaml = {
+				-- SchemaStore supplies the catalogue, so yamlls' own store must be off
+				schemaStore = { enable = false, url = "" },
+				schemas = require("schemastore").yaml.schemas(),
+				validate = true,
+				keyOrdering = false,
+			},
+		},
+	},
+	taplo = { mason = "taplo" },
 	jqls = { mason = "jq-lsp" },
+	gopls = {
+		mason = "gopls",
+		settings = {
+			gopls = {
+				gofumpt = true,
+				staticcheck = true,
+				usePlaceholders = true,
+				analyses = {
+					unusedparams = true,
+					unusedwrite = true,
+					nilness = true,
+					shadow = true,
+				},
+				hints = {
+					assignVariableTypes = true,
+					compositeLiteralFields = true,
+					constantValues = true,
+					functionTypeParameters = true,
+					parameterNames = true,
+					rangeVariableTypes = true,
+				},
+			},
+		},
+	},
+	templ = { mason = "templ" },
+	html = {
+		mason = "html-lsp",
+		-- templ files are html + go, htmlls handles the markup half
+		filetypes = { "html", "templ" },
+	},
+	bashls = {
+		mason = "bash-language-server",
+		filetypes = { "sh", "bash", "zsh" },
+		settings = {
+			bashIde = { shellcheckPath = "shellcheck" },
+		},
+	},
+	dockerls = { mason = "dockerfile-language-server" },
+	docker_compose_language_service = { mason = "docker-compose-language-service" },
+	terraformls = { mason = "terraform-ls" },
+	prismals = { mason = "prisma-language-server" },
+	marksman = { mason = "marksman" },
+	harper_ls = {
+		mason = "harper-ls",
+		-- grammar/spelling inside comments, strings and markdown; no JVM, unlike ltex
+		settings = {
+			["harper-ls"] = {
+				linters = {
+					SentenceCapitalization = false,
+					SpellCheck = true,
+					ToDoHyphen = false,
+				},
+				isolateEnglish = true,
+			},
+		},
+		filetypes = { "markdown", "gitcommit", "text" },
+	},
+	basedpyright = {
+		mason = "basedpyright",
+		settings = {
+			basedpyright = {
+				analysis = {
+					typeCheckingMode = "standard",
+					autoImportCompletions = true,
+					diagnosticMode = "openFilesOnly",
+				},
+			},
+		},
+	},
+	ruff = { mason = "ruff" },
 	glsl_analyzer = { mason = "glsl_analyzer" },
 	just = { mason = "just-lsp" },
 	tailwindcss = { mason = "tailwindcss-language-server" },
@@ -790,6 +1130,12 @@ local ensure_installed = {
 	"stylelint",
 	"jq",
 	"clang-format",
+	"shfmt",
+	"shellcheck",
+	"gofumpt",
+	"goimports",
+	"delve",
+	"codelldb",
 }
 
 for server_name, server_config in pairs(servers) do
@@ -831,3 +1177,133 @@ vim.lsp.config("wcag_lsp", {
 	capabilities = capabilities,
 })
 vim.lsp.enable("wcag_lsp")
+
+-- ---------------------------------------------------------------------------
+-- debugging
+-- ---------------------------------------------------------------------------
+
+local dap = require("dap")
+local dapui = require("dapui")
+
+local mason_bin = vim.fn.stdpath("data") .. "/mason/bin/"
+
+-- codelldb speaks DAP over a socket, so it is launched as a server and nvim
+-- connects to the port it prints on startup
+dap.adapters.codelldb = {
+	type = "server",
+	port = "${port}",
+	executable = {
+		command = mason_bin .. "codelldb",
+		args = { "--port", "${port}" },
+	},
+}
+
+local function pick_executable()
+	return coroutine.create(function(co)
+		vim.ui.input({
+			prompt = "Path to executable: ",
+			default = vim.fn.getcwd() .. "/",
+			completion = "file",
+		}, function(input)
+			coroutine.resume(co, input)
+		end)
+	end)
+end
+
+local native_config = {
+	{
+		name = "Launch executable",
+		type = "codelldb",
+		request = "launch",
+		program = pick_executable,
+		cwd = "${workspaceFolder}",
+		stopOnEntry = false,
+		args = {},
+	},
+	{
+		name = "Attach to process",
+		type = "codelldb",
+		request = "attach",
+		pid = require("dap.utils").pick_process,
+		cwd = "${workspaceFolder}",
+	},
+}
+
+dap.configurations.c = native_config
+dap.configurations.cpp = native_config
+dap.configurations.rust = native_config
+dap.configurations.odin = native_config
+
+-- delve adapter + the go launch configurations come from nvim-dap-go
+require("dap-go").setup({
+	delve = { path = mason_bin .. "dlv" },
+})
+
+require("nvim-dap-virtual-text").setup({
+	virt_text_pos = "eol",
+	commented = true,
+})
+
+dapui.setup({
+	icons = { expanded = "▾", collapsed = "▸", current_frame = "▸" },
+	layouts = {
+		{
+			elements = {
+				{ id = "scopes", size = 0.30 },
+				{ id = "breakpoints", size = 0.20 },
+				{ id = "stacks", size = 0.25 },
+				{ id = "watches", size = 0.25 },
+			},
+			size = 44,
+			position = "left",
+		},
+		{
+			elements = {
+				{ id = "repl", size = 0.5 },
+				{ id = "console", size = 0.5 },
+			},
+			size = 12,
+			position = "bottom",
+		},
+	},
+})
+
+-- open the ui when a session starts, close it when it ends
+dap.listeners.after.event_initialized["dapui_config"] = dapui.open
+dap.listeners.before.event_terminated["dapui_config"] = dapui.close
+dap.listeners.before.event_exited["dapui_config"] = dapui.close
+
+vim.fn.sign_define("DapBreakpoint", { text = "●", texthl = "DiagnosticSignError", numhl = "" })
+vim.fn.sign_define("DapBreakpointCondition", { text = "◆", texthl = "DiagnosticSignWarn", numhl = "" })
+vim.fn.sign_define("DapLogPoint", { text = "◉", texthl = "DiagnosticSignInfo", numhl = "" })
+vim.fn.sign_define("DapStopped", { text = "▶", texthl = "DiagnosticSignWarn", linehl = "Visual", numhl = "" })
+
+-- function keys for step control (layout independent), <leader>b for breakpoints
+set("n", "<F5>", dap.continue, { desc = "Debug: start / continue" })
+set("n", "<F9>", dap.toggle_breakpoint, { desc = "Debug: toggle breakpoint" })
+set("n", "<F10>", dap.step_over, { desc = "Debug: step over" })
+set("n", "<F11>", dap.step_into, { desc = "Debug: step into" })
+set("n", "<F12>", dap.step_out, { desc = "Debug: step out" })
+set("n", "<leader>b", dap.toggle_breakpoint, { desc = "Debug: toggle [B]reakpoint" })
+set("n", "<leader>B", function()
+	vim.ui.input({ prompt = "Breakpoint condition: " }, function(cond)
+		if cond then
+			dap.set_breakpoint(cond)
+		end
+	end)
+end, { desc = "Debug: conditional [B]reakpoint" })
+set("n", "<leader>dl", function()
+	vim.ui.input({ prompt = "Log point message: " }, function(msg)
+		if msg then
+			dap.set_breakpoint(nil, nil, msg)
+		end
+	end)
+end, { desc = "Debug: [L]og point" })
+set("n", "<leader>du", dapui.toggle, { desc = "Debug: toggle [U]I" })
+set("n", "<leader>dt", dap.terminate, { desc = "Debug: [T]erminate session" })
+set("n", "<leader>dc", dap.run_to_cursor, { desc = "Debug: run to [C]ursor" })
+set("n", "<leader>dR", dap.restart, { desc = "Debug: [R]estart session" })
+set("n", "<leader>db", dap.list_breakpoints, { desc = "Debug: list [B]reakpoints in quickfix" })
+set({ "n", "v" }, "<leader>dh", function()
+	require("dap.ui.widgets").hover()
+end, { desc = "Debug: [H]over value" })

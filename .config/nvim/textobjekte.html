@@ -1,0 +1,995 @@
+<meta charset="utf-8">
+<title>textobjekt-drills</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+:root {
+	--bg: #e7e8ee;
+	--surface: #f2f3f8;
+	--raised: #ffffff;
+	--border: #c6cadc;
+	--border-soft: #d8dbe8;
+	--fg: #272b40;
+	--muted: #666e91;
+	--verb: #8c4bd8;
+	--noun: #2e6fd9;
+	--ok: #4e7a2c;
+	--warn: #b15c00;
+	--bad: #d92a5a;
+	--code-bg: #f7f8fc;
+	--shadow: 0 1px 2px rgba(39, 43, 64, .06), 0 8px 24px -12px rgba(39, 43, 64, .18);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #1a1b26;
+		--surface: #1e2030;
+		--raised: #24283b;
+		--border: #333856;
+		--border-soft: #2a2e44;
+		--fg: #c4cdf3;
+		--muted: #7f88ad;
+		--verb: #bb9af7;
+		--noun: #7aa2f7;
+		--ok: #9ece6a;
+		--warn: #ff9e64;
+		--bad: #f7768e;
+		--code-bg: #16161e;
+		--shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
+	}
+}
+
+:root[data-theme="dark"] {
+	--bg: #1a1b26;
+	--surface: #1e2030;
+	--raised: #24283b;
+	--border: #333856;
+	--border-soft: #2a2e44;
+	--fg: #c4cdf3;
+	--muted: #7f88ad;
+	--verb: #bb9af7;
+	--noun: #7aa2f7;
+	--ok: #9ece6a;
+	--warn: #ff9e64;
+	--bad: #f7768e;
+	--code-bg: #16161e;
+	--shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
+}
+
+* { box-sizing: border-box; }
+
+body {
+	background: var(--bg);
+	color: var(--fg);
+	font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+	font-size: 16px;
+	line-height: 1.6;
+	margin: 0;
+	padding: 0 24px 96px;
+	-webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; }
+
+h1, h2, h3 {
+	font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+	text-wrap: balance;
+	margin: 0;
+	letter-spacing: -.02em;
+}
+
+code, kbd, pre, .mono {
+	font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+	font-variant-ligatures: none;
+}
+
+/* ---------- header ---------- */
+
+header {
+	padding: 72px 0 40px;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.eyebrow {
+	font-size: 12px;
+	letter-spacing: .14em;
+	text-transform: uppercase;
+	color: var(--muted);
+	font-weight: 600;
+}
+
+h1 { font-size: clamp(38px, 6.5vw, 68px); font-weight: 800; line-height: 1.02; }
+
+.lede {
+	font-size: clamp(17px, 2.2vw, 20px);
+	color: var(--muted);
+	max-width: 60ch;
+	margin: 0;
+}
+
+.lede em { color: var(--fg); font-style: normal; font-weight: 500; }
+
+/* ---------- grammar formula ---------- */
+
+.formula {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 15px;
+	padding: 18px 20px;
+	background: var(--surface);
+	border: 1px solid var(--border-soft);
+	border-radius: 4px;
+}
+
+.formula .slot { padding: 4px 10px; border-radius: 3px; font-weight: 700; }
+.formula .v { background: color-mix(in srgb, var(--verb) 16%, transparent); color: var(--verb); }
+.formula .m { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); }
+.formula .n { background: color-mix(in srgb, var(--noun) 16%, transparent); color: var(--noun); }
+.formula .op { color: var(--muted); }
+.formula .res { color: var(--fg); font-weight: 500; }
+
+/* ---------- sections ---------- */
+
+section { margin-top: 72px; }
+
+.sec-head {
+	display: flex;
+	align-items: baseline;
+	gap: 14px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+
+h2 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 700; }
+
+.sec-note { color: var(--muted); font-size: 15px; max-width: 68ch; margin: 0 0 28px; }
+
+/* ---------- builder ---------- */
+
+.builder {
+	background: var(--raised);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	box-shadow: var(--shadow);
+	overflow: hidden;
+}
+
+.builder-row { padding: 18px 22px; border-bottom: 1px solid var(--border-soft); }
+.builder-row:last-child { border-bottom: 0; }
+
+.row-label {
+	font-size: 11px;
+	letter-spacing: .12em;
+	text-transform: uppercase;
+	font-weight: 600;
+	margin-bottom: 12px;
+	display: block;
+}
+.row-label.v { color: var(--verb); }
+.row-label.n { color: var(--noun); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 13px;
+	font-weight: 500;
+	padding: 7px 12px;
+	border-radius: 3px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--fg);
+	cursor: pointer;
+	transition: background .12s ease, border-color .12s ease, color .12s ease;
+	line-height: 1.2;
+}
+
+.chip .gloss { color: var(--muted); margin-left: 7px; font-family: "Public Sans", sans-serif; font-size: 12px; }
+.chip:hover { border-color: var(--muted); }
+.chip:focus-visible { outline: 2px solid var(--noun); outline-offset: 2px; }
+
+.chip[aria-pressed="true"] { color: #fff; }
+.chip.v[aria-pressed="true"] { background: var(--verb); border-color: var(--verb); }
+.chip.n[aria-pressed="true"] { background: var(--noun); border-color: var(--noun); }
+.chip[aria-pressed="true"] .gloss { color: rgba(255, 255, 255, .75); }
+
+.chip.na { opacity: .45; }
+
+.builder-out {
+	background: var(--code-bg);
+	padding: 26px 22px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-height: 132px;
+	justify-content: center;
+}
+
+.out-cmd {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: clamp(30px, 5vw, 46px);
+	font-weight: 700;
+	letter-spacing: -.01em;
+	line-height: 1;
+}
+.out-cmd .v { color: var(--verb); }
+.out-cmd .m { color: var(--muted); }
+.out-cmd .n { color: var(--noun); }
+
+.out-gloss { font-size: 17px; color: var(--fg); }
+.out-detail { font-size: 14px; color: var(--muted); max-width: 70ch; }
+.out-empty { color: var(--muted); font-size: 15px; }
+
+/* ---------- table ---------- */
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--raised); }
+
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 660px; }
+
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border-soft); }
+thead th {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .1em;
+	color: var(--muted);
+	font-weight: 600;
+	background: var(--surface);
+	position: sticky;
+	top: 0;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.key { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 700; white-space: nowrap; }
+td.key .a { color: var(--noun); }
+td.key .i { color: var(--noun); opacity: .72; }
+.avail { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; white-space: nowrap; }
+.yes { color: var(--ok); }
+.no { color: var(--bad); }
+.partial { color: var(--warn); }
+
+/* ---------- drills ---------- */
+
+.progress-bar {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-bottom: 28px;
+	font-size: 13px;
+	color: var(--muted);
+	flex-wrap: wrap;
+}
+.track { flex: 1; min-width: 160px; height: 5px; background: var(--border-soft); border-radius: 99px; overflow: hidden; }
+.fill { height: 100%; width: 0%; background: var(--noun); transition: width .3s ease; }
+.reset-btn {
+	font-size: 12px; color: var(--muted); background: none; border: 0;
+	cursor: pointer; text-decoration: underline; padding: 4px; font-family: inherit;
+}
+.reset-btn:hover { color: var(--fg); }
+.reset-btn:focus-visible { outline: 2px solid var(--noun); outline-offset: 2px; }
+
+.stage { margin-bottom: 44px; }
+
+.stage-head {
+	display: flex;
+	align-items: baseline;
+	gap: 12px;
+	padding-bottom: 10px;
+	border-bottom: 2px solid var(--border);
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+}
+.stage-num {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--bg);
+	background: var(--fg);
+	padding: 3px 8px;
+	border-radius: 3px;
+}
+h3 { font-size: 20px; font-weight: 700; }
+.stage-why { color: var(--muted); font-size: 14px; margin-left: auto; }
+
+.drill {
+	display: grid;
+	grid-template-columns: 26px 1fr;
+	gap: 0 14px;
+	padding: 18px 0;
+	border-bottom: 1px solid var(--border-soft);
+}
+.drill:last-child { border-bottom: 0; }
+
+.drill input[type="checkbox"] {
+	appearance: none;
+	width: 18px; height: 18px;
+	margin: 4px 0 0;
+	border: 1.5px solid var(--border);
+	border-radius: 3px;
+	background: var(--raised);
+	cursor: pointer;
+	position: relative;
+	flex-shrink: 0;
+}
+.drill input[type="checkbox"]:checked { background: var(--ok); border-color: var(--ok); }
+.drill input[type="checkbox"]:checked::after {
+	content: "";
+	position: absolute; left: 5px; top: 1px;
+	width: 4px; height: 9px;
+	border: solid #fff; border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
+.drill input[type="checkbox"]:focus-visible { outline: 2px solid var(--noun); outline-offset: 2px; }
+
+.drill-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.drill-cmd {
+	display: flex;
+	align-items: baseline;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+.drill-cmd .keys {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 17px;
+	font-weight: 700;
+	padding: 3px 9px;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--noun) 13%, transparent);
+	color: var(--noun);
+	white-space: nowrap;
+}
+.drill-cmd .what { font-weight: 500; }
+.drill.done .drill-body { opacity: .5; }
+
+.drill p { margin: 0; font-size: 14px; color: var(--muted); max-width: 72ch; }
+
+pre {
+	margin: 0;
+	background: var(--code-bg);
+	border: 1px solid var(--border-soft);
+	border-radius: 4px;
+	padding: 13px 15px;
+	overflow-x: auto;
+	font-size: 13px;
+	line-height: 1.65;
+	color: var(--fg);
+}
+pre .cur {
+	background: var(--warn);
+	color: var(--bg);
+	border-radius: 2px;
+	padding: 0 1px;
+	font-weight: 700;
+}
+pre .dim { color: var(--muted); }
+pre .hl { background: color-mix(in srgb, var(--noun) 22%, transparent); border-radius: 2px; }
+
+.pair { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 720px) { .pair { grid-template-columns: 1fr 1fr; gap: 12px; } }
+.pair-label {
+	font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+	color: var(--muted); font-weight: 600; margin-bottom: 5px; display: block;
+}
+
+/* ---------- gotchas ---------- */
+
+.gotchas { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 760px) { .gotchas { grid-template-columns: 1fr 1fr; } }
+
+.gotcha {
+	background: var(--raised);
+	border: 1px solid var(--border);
+	border-left: 3px solid var(--warn);
+	border-radius: 4px;
+	padding: 16px 18px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.gotcha h4 {
+	margin: 0;
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--fg);
+}
+.gotcha p { margin: 0; font-size: 14px; color: var(--muted); }
+.gotcha .verified {
+	font-size: 11px;
+	color: var(--ok);
+	letter-spacing: .04em;
+	margin-top: 2px;
+}
+
+/* ---------- movement ---------- */
+
+.move-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 700px) { .move-grid { grid-template-columns: 1fr 1fr; } }
+.move {
+	display: flex; align-items: baseline; gap: 14px;
+	padding: 12px 16px;
+	background: var(--surface);
+	border: 1px solid var(--border-soft);
+	border-radius: 4px;
+	font-size: 14px;
+}
+.move .keys {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-weight: 700; font-size: 13px; color: var(--verb); white-space: nowrap;
+}
+.move .desc { color: var(--muted); }
+
+footer {
+	margin-top: 80px;
+	padding-top: 24px;
+	border-top: 1px solid var(--border-soft);
+	color: var(--muted);
+	font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+
+<header>
+	<span class="eyebrow">neovim · treesitter-textobjects</span>
+	<h1>textobjekt-drills</h1>
+	<p class="lede">vim-kommandos sind sätze: ein <em>verb</em>, ein <em>bezug</em>, ein <em>objekt</em>. treesitter liefert die objekte, die der parser wirklich versteht — funktion, parameter, schleife, aufruf. wer die neun objekte im finger hat, editiert in einheiten statt in zeilen.</p>
+	<div class="formula">
+		<span class="slot v">d</span>
+		<span class="slot m">i</span>
+		<span class="slot n">f</span>
+		<span class="op">→</span>
+		<span class="res">lösche <em>innerhalb</em> der funktion</span>
+	</div>
+</header>
+
+<section>
+	<div class="sec-head"><h2>satzbaukasten</h2></div>
+	<p class="sec-note">wähle ein verb und ein objekt. das ist die gesamte grammatik — 10 verben × 9 objekte × 2 bezüge sind über 180 kommandos, die du nie einzeln lernen musst.</p>
+
+	<div class="builder">
+		<div class="builder-row">
+			<span class="row-label v">verb — was passiert</span>
+			<div class="chips" id="verbs"></div>
+		</div>
+		<div class="builder-row">
+			<span class="row-label n">objekt — womit</span>
+			<div class="chips" id="nouns"></div>
+		</div>
+		<div class="builder-row" style="padding-bottom:14px">
+			<span class="row-label" style="color:var(--muted)">bezug</span>
+			<div class="chips" id="scopes"></div>
+		</div>
+		<div class="builder-out" id="out">
+			<span class="out-empty">wähle oben ein verb und ein objekt.</span>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="sec-head"><h2>die neun objekte</h2></div>
+	<p class="sec-note">geprüft gegen die tatsächlich installierten parser. wo eine spalte „nein“ sagt, existiert die query nicht — das kommando tut dort schlicht nichts.</p>
+
+	<div class="table-scroll">
+		<table>
+			<thead>
+				<tr>
+					<th>tasten</th>
+					<th>objekt</th>
+					<th>„around“ greift</th>
+					<th>„inside“ greift</th>
+					<th>ts / tsx / js</th>
+					<th>lua</th>
+					<th>go / rust / c</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="key"><span class="a">af</span> / <span class="i">if</span></td>
+					<td>funktion</td>
+					<td>signatur + rumpf, zeilenweise</td>
+					<td>nur den rumpf</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">ac</span> / <span class="i">ic</span></td>
+					<td>klasse</td>
+					<td>ganze klasse, zeilenweise</td>
+					<td>nur den körper</td>
+					<td class="avail yes">ja</td><td class="avail no">nein</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">aa</span> / <span class="i">ia</span></td>
+					<td>parameter / argument</td>
+					<td>parameter <strong>samt komma</strong></td>
+					<td>nur den parameter</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">al</span> / <span class="i">il</span></td>
+					<td>schleife</td>
+					<td>kopf + rumpf</td>
+					<td>nur den rumpf</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">an</span> / <span class="i">in</span></td>
+					<td>bedingung (if)</td>
+					<td>das ganze if</td>
+					<td>nur den block</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">ak</span> / <span class="i">ik</span></td>
+					<td>funktionsaufruf</td>
+					<td><code>name(args)</code></td>
+					<td>nur die argumente</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">ao</span> / <span class="i">io</span></td>
+					<td>kommentar</td>
+					<td>kommentar samt <code>//</code></td>
+					<td>nur der text</td>
+					<td class="avail partial">nur ao</td><td class="avail yes">ja</td><td class="avail partial">nur ao</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="a">a=</span> / <span class="i">i=</span></td>
+					<td>zuweisung</td>
+					<td>ganze anweisung inkl. <code>const</code> und <code>;</code></td>
+					<td>eine seite, nicht beide</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+				<tr>
+					<td class="key"><span class="i">iL</span> / <span class="i">iR</span></td>
+					<td>linke / rechte seite</td>
+					<td>—</td>
+					<td>variablenname / wert</td>
+					<td class="avail yes">ja</td><td class="avail yes">ja</td><td class="avail yes">ja</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</section>
+
+<section>
+	<div class="sec-head"><h2>drills</h2></div>
+	<p class="sec-note">vier stufen, aufeinander aufbauend. übe jede stufe ein paar tage, bis die tasten ohne nachdenken kommen — erst dann die nächste. <span style="color:var(--warn)">■</span> markiert die cursorposition vor dem kommando.</p>
+
+	<div class="progress-bar">
+		<span id="count" class="mono">0 / 18</span>
+		<div class="track"><div class="fill" id="fill"></div></div>
+		<button class="reset-btn" id="reset" type="button">zurücksetzen</button>
+	</div>
+
+	<div id="drills"></div>
+</section>
+
+<section>
+	<div class="sec-head"><h2>fallstricke</h2></div>
+	<p class="sec-note">an echtem typescript-code gegen die parser-queries geprüft. genau diese fünf punkte kosten anfangs die meiste zeit.</p>
+
+	<div class="gotchas">
+		<div class="gotcha">
+			<h4>i= greift nur eine seite</h4>
+			<p>bei <code>let summe = 0;</code> matcht <code>i=</code> sowohl <code>summe</code> als auch <code>0</code> — welche seite du bekommst, hängt davon ab, wo der cursor steht. für gezielten zugriff nimm <code>iL</code> und <code>iR</code>, für die ganze anweisung <code>a=</code>.</p>
+			<span class="verified">✓ an der query verifiziert</span>
+		</div>
+		<div class="gotcha">
+			<h4>a= nur bei deklarationen</h4>
+			<p>in typescript erfasst die query <code>const</code>- und <code>let</code>-deklarationen. eine reine neuzuweisung wie <code>summe = summe + 1;</code> ist <strong>kein</strong> match — dort passiert nichts.</p>
+			<span class="verified">✓ an der query verifiziert</span>
+		</div>
+		<div class="gotcha">
+			<h4>io fehlt in typescript</h4>
+			<p><code>comment.inner</code> gibt es nur für lua und python. in ts, js, rust, c und c++ funktioniert nur <code>ao</code> — das nimmt die <code>//</code> mit.</p>
+			<span class="verified">✓ über alle parser geprüft</span>
+		</div>
+		<div class="gotcha">
+			<h4>aa räumt das komma mit weg</h4>
+			<p>das ist der eigentliche gewinn: <code>daa</code> löscht <code>container,</code> und hinterlässt eine gültige argumentliste. <code>dia</code> löscht nur den namen und lässt dir ein doppeltes komma.</p>
+			<span class="verified">✓ an der query verifiziert</span>
+		</div>
+		<div class="gotcha">
+			<h4>der cursor muss nicht drin sein</h4>
+			<p><code>lookahead</code> ist aktiv: steht der cursor vor der funktion, springt <code>cif</code> vorwärts zur nächsten. du musst nicht erst hinnavigieren — das spart die halbe arbeit.</p>
+			<span class="verified">✓ in deiner config gesetzt</span>
+		</div>
+		<div class="gotcha">
+			<h4>af und ac sind zeilenweise</h4>
+			<p>beide sind auf <code>selection_modes = "V"</code> gesetzt. <code>vaf</code> markiert also volle zeilen, nicht ab spalte 1 — genau richtig zum verschieben, aber ungewohnt wenn du zeichenweise erwartest.</p>
+			<span class="verified">✓ in deiner config gesetzt</span>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="sec-head"><h2>springen und tauschen</h2></div>
+	<p class="sec-note">bewusst ohne <code>[</code> und <code>]</code> gelegt — auf deutschem layout wären die zwei AltGr-griffe pro sprung.</p>
+
+	<div class="move-grid">
+		<div class="move"><span class="keys">&lt;leader&gt;fn</span><span class="desc">zur nächsten funktion</span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;fp</span><span class="desc">zur vorigen funktion</span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;fN</span><span class="desc">zum nächsten funktions<em>ende</em></span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;fP</span><span class="desc">zum vorigen funktionsende</span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;Cn</span><span class="desc">zur nächsten klasse</span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;Cp</span><span class="desc">zur vorigen klasse</span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;an</span><span class="desc">parameter nach rechts schieben</span></div>
+		<div class="move"><span class="keys">&lt;leader&gt;ap</span><span class="desc">parameter nach links schieben</span></div>
+	</div>
+</section>
+
+<footer>
+	die sprung-kommandos setzen einen jump — <code>&lt;C-o&gt;</code> bringt dich zurück. alle tasten stammen aus deiner init.lua; <code>&lt;leader&gt;sk</code> zeigt sie jederzeit im telescope-picker.
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+const VERBS = [
+	{ k: "d", g: "löschen", p: "löscht" },
+	{ k: "c", g: "ändern", p: "löscht und springt in den insert-modus" },
+	{ k: "y", g: "kopieren", p: "kopiert" },
+	{ k: "v", g: "markieren", p: "markiert" },
+	{ k: "=", g: "einrücken", p: "rückt neu ein" },
+	{ k: ">", g: "rein", p: "rückt eine ebene nach rechts" },
+	{ k: "<", g: "raus", p: "rückt eine ebene nach links" },
+	{ k: "gu", g: "klein", p: "macht kleinbuchstaben aus" },
+	{ k: "gU", g: "groß", p: "macht großbuchstaben aus" },
+	{ k: "gq", g: "umbrechen", p: "bricht auf textbreite um" }
+];
+
+const NOUNS = [
+	{ k: "f", g: "funktion", a: "die ganze funktion samt signatur", i: "den funktionsrumpf" },
+	{ k: "c", g: "klasse", a: "die ganze klasse", i: "den klassenkörper" },
+	{ k: "a", g: "parameter", a: "den parameter samt komma", i: "den parameter ohne komma" },
+	{ k: "l", g: "schleife", a: "die schleife samt kopf", i: "den schleifenrumpf" },
+	{ k: "n", g: "bedingung", a: "das ganze if", i: "den block im if" },
+	{ k: "k", g: "aufruf", a: "den aufruf samt namen", i: "die argumente des aufrufs" },
+	{ k: "o", g: "kommentar", a: "den kommentar samt //", i: "den kommentartext", inote: "nur lua und python" },
+	{ k: "=", g: "zuweisung", a: "die ganze anweisung", i: "eine seite der zuweisung" },
+	{ k: "L", g: "linke seite", fixed: "i", i: "den variablennamen" },
+	{ k: "R", g: "rechte seite", fixed: "i", i: "den zugewiesenen wert" }
+];
+
+const SCOPES = [
+	{ k: "a", g: "around — mit drumherum" },
+	{ k: "i", g: "inside — nur der inhalt" }
+];
+
+let sel = { verb: null, noun: null, scope: "i" };
+
+function chip(cls, key, gloss, pressed, onClick, dimmed) {
+	const b = document.createElement("button");
+	b.type = "button";
+	b.className = "chip " + cls + (dimmed ? " na" : "");
+	b.setAttribute("aria-pressed", String(pressed));
+	b.innerHTML = '<span class="mono">' + escapeHtml(key) + '</span><span class="gloss">' + escapeHtml(gloss) + "</span>";
+	b.addEventListener("click", onClick);
+	return b;
+}
+
+function escapeHtml(s) {
+	return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderChips() {
+	const vc = document.getElementById("verbs");
+	const nc = document.getElementById("nouns");
+	const sc = document.getElementById("scopes");
+	vc.textContent = ""; nc.textContent = ""; sc.textContent = "";
+
+	VERBS.forEach(v => vc.appendChild(chip("v", v.k, v.g, sel.verb === v.k, () => {
+		sel.verb = sel.verb === v.k ? null : v.k;
+		renderChips(); renderOut();
+	})));
+
+	NOUNS.forEach(n => nc.appendChild(chip("n", n.k, n.g, sel.noun === n.k, () => {
+		sel.noun = sel.noun === n.k ? null : n.k;
+		if (n.fixed) sel.scope = n.fixed;
+		renderChips(); renderOut();
+	})));
+
+	const noun = NOUNS.find(n => n.k === sel.noun);
+	SCOPES.forEach(s => {
+		const locked = noun && noun.fixed && noun.fixed !== s.k;
+		sc.appendChild(chip("m", s.k, s.g, sel.scope === s.k && !locked, () => {
+			if (locked) return;
+			sel.scope = s.k;
+			renderChips(); renderOut();
+		}, locked));
+	});
+}
+
+function renderOut() {
+	const out = document.getElementById("out");
+	const v = VERBS.find(x => x.k === sel.verb);
+	const n = NOUNS.find(x => x.k === sel.noun);
+
+	if (!v || !n) {
+		out.innerHTML = '<span class="out-empty">wähle oben ein verb und ein objekt.</span>';
+		return;
+	}
+
+	const scope = n.fixed || sel.scope;
+	const target = scope === "a" ? n.a : n.i;
+	const keys = n.fixed
+		? v.k + n.fixed + n.k
+		: v.k + scope + n.k;
+
+	const parts = [
+		'<div class="out-cmd"><span class="v">' + escapeHtml(v.k) + '</span>' +
+		'<span class="m">' + escapeHtml(scope) + '</span>' +
+		'<span class="n">' + escapeHtml(n.k) + "</span></div>",
+		'<div class="out-gloss">' + escapeHtml(v.p + " " + target) + "</div>"
+	];
+
+	if (scope === "a" && !n.a) {
+		parts[1] = '<div class="out-gloss">' + escapeHtml(n.g) + ' hat kein „around“ — nur ' + escapeHtml(n.k === "L" || n.k === "R" ? "i" + n.k : n.k) + "</div>";
+	}
+	if (n.inote && scope === "i") {
+		parts.push('<div class="out-detail">achtung: ' + escapeHtml(n.inote) + " — in typescript, js, rust und c gibt es dieses objekt nicht.</div>");
+	}
+	if (n.k === "=" && scope === "i") {
+		parts.push('<div class="out-detail">greift die seite, die dem cursor am nächsten ist. für gezielten zugriff <span class="mono">iL</span> oder <span class="mono">iR</span>.</div>');
+	}
+
+	out.innerHTML = parts.join("");
+	void keys;
+}
+
+const DRILLS = [
+	{
+		stage: 1,
+		keys: "cif",
+		what: "funktionsrumpf komplett neu schreiben",
+		note: "der klassiker. cursor irgendwo in der funktion — signatur bleibt, rumpf ist weg, du bist im insert-modus.",
+		before: 'function <span class="cur">b</span>erechne(items: Item[]) {\n\tlet summe = 0;\n\tfor (const i of items) summe += i.preis;\n\treturn summe;\n}',
+		after: 'function berechne(items: Item[]) {\n\t<span class="cur">▌</span>\n}'
+	},
+	{
+		stage: 1,
+		keys: "daf",
+		what: "ganze funktion löschen",
+		note: "nimmt signatur, rumpf und die zeilen drumherum. zeilenweise, es bleibt keine leere hülle stehen.",
+		before: 'const x = 1;\n\nfunction al<span class="cur">t</span>(a: number) {\n\treturn a * 2;\n}\n\nconst y = 2;',
+		after: 'const x = 1;\n\nconst y = 2;'
+	},
+	{
+		stage: 1,
+		keys: "yaf",
+		what: "funktion kopieren, dann mit p einfügen",
+		note: "schnellster weg, eine variante einer funktion zu bauen: yaf, cursor ans ziel, p, dann cif für den neuen rumpf."
+	},
+	{
+		stage: 1,
+		keys: "=if",
+		what: "funktionsrumpf neu einrücken",
+		note: "nach einem umbau, bei dem die einrückung verrutscht ist. wirkt nur auf den rumpf, die signatur bleibt unberührt."
+	},
+	{
+		stage: 2,
+		keys: "cia",
+		what: "einen parameter ersetzen",
+		note: "greift genau den parameter unter dem cursor, ohne komma. tippen, fertig.",
+		before: 'render(element, con<span class="cur">t</span>ainer, options);',
+		after: 'render(element, <span class="cur">▌</span>, options);'
+	},
+	{
+		stage: 2,
+		keys: "daa",
+		what: "parameter samt komma entfernen",
+		note: "der entscheidende unterschied zu dia: das komma geht mit. die argumentliste bleibt gültig.",
+		before: 'render(element, con<span class="cur">t</span>ainer, options);',
+		after: 'render(element, options);'
+	},
+	{
+		stage: 2,
+		keys: "&lt;leader&gt;an",
+		what: "parameter nach rechts tauschen",
+		note: "verschiebt das argument unter dem cursor eine position weiter. &lt;leader&gt;ap geht nach links.",
+		before: 'render(<span class="cur">e</span>lement, container);',
+		after: 'render(container, <span class="cur">e</span>lement);'
+	},
+	{
+		stage: 2,
+		keys: "cia",
+		what: "feld in einer destrukturierung ersetzen",
+		note: "destrukturierungsfelder zählen ebenfalls als parameter — cia funktioniert dort genauso.",
+		before: 'const { name, co<span class="cur">u</span>nt } = props;',
+		after: 'const { name, <span class="cur">▌</span> } = props;'
+	},
+	{
+		stage: 3,
+		keys: "dal",
+		what: "ganze schleife entfernen",
+		note: "kopf und rumpf in einem zug. il würde nur den rumpf leeren und die schleife stehen lassen.",
+		before: 'let s = 0;\nfor (const <span class="cur">a</span> of items) {\n\ts += a.preis;\n}\nreturn s;',
+		after: 'let s = 0;\nreturn s;'
+	},
+	{
+		stage: 3,
+		keys: "cin",
+		what: "den block eines if neu schreiben",
+		note: "achtung: in greift den block, nicht die bedingung. für das ganze if inklusive bedingung nimmst du an.",
+		before: 'if (rabatt > 0) {\n\tsumme = sum<span class="cur">m</span>e * 0.9;\n}',
+		after: 'if (rabatt > 0) {\n\t<span class="cur">▌</span>\n}'
+	},
+	{
+		stage: 3,
+		keys: "cik",
+		what: "die argumente eines aufrufs ersetzen",
+		note: "greift alles zwischen den klammern, der funktionsname bleibt. ideal beim umbau von signaturen.",
+		before: 'const r = Math.ro<span class="cur">u</span>nd(summe * 100);',
+		after: 'const r = Math.round(<span class="cur">▌</span>);'
+	},
+	{
+		stage: 3,
+		keys: "dak",
+		what: "den ganzen aufruf entfernen",
+		note: "name und klammern verschwinden. gut zum entfernen eines wrappers — vorher yik, um das innere zu retten.",
+		before: 'const r = Math.ro<span class="cur">u</span>nd(summe);',
+		after: 'const r = ;'
+	},
+	{
+		stage: 3,
+		keys: "vak",
+		what: "aufruf markieren, dann mit nvim-surround umbauen",
+		note: "kombiniert zwei plugins: vak markiert den aufruf, danach umschließt du ihn direkt weiter."
+	},
+	{
+		stage: 4,
+		keys: "ciR",
+		what: "den wert einer zuweisung ersetzen",
+		note: "greift gezielt die rechte seite — variablenname und typ bleiben unangetastet.",
+		before: 'const timeout = 3<span class="cur">0</span>00;',
+		after: 'const timeout = <span class="cur">▌</span>;'
+	},
+	{
+		stage: 4,
+		keys: "ciL",
+		what: "den variablennamen ändern",
+		note: "die linke seite. für echtes umbenennen über die ganze datei bleibt &lt;leader&gt;rn die bessere wahl — das hier ist die lokale variante.",
+		before: 'const tim<span class="cur">e</span>out = 3000;',
+		after: 'const <span class="cur">▌</span> = 3000;'
+	},
+	{
+		stage: 4,
+		keys: "da=",
+		what: "die ganze anweisung löschen",
+		note: "inklusive const und semikolon. funktioniert bei deklarationen — bei reiner neuzuweisung greift die query in typescript nicht.",
+		before: 'const a = 1;\nconst unus<span class="cur">e</span>d = compute();\nconst b = 2;',
+		after: 'const a = 1;\nconst b = 2;'
+	},
+	{
+		stage: 4,
+		keys: "cif ohne hinnavigieren",
+		what: "lookahead ausnutzen",
+		note: "cursor steht über der funktion, nicht drin. cif springt trotzdem vorwärts zur nächsten. das erspart dir jeden sprung dorthin.",
+		before: 'const x = <span class="cur">1</span>;\n\nfunction spaeter() {\n\treturn 42;\n}',
+		after: 'const x = 1;\n\nfunction spaeter() {\n\t<span class="cur">▌</span>\n}'
+	},
+	{
+		stage: 4,
+		keys: "&lt;leader&gt;fn cif",
+		what: "springen und sofort ändern",
+		note: "die zielkombination: zur nächsten funktion springen, rumpf ersetzen — ohne die maus, ohne zeilen zu zählen."
+	}
+];
+
+const STAGES = [
+	{ n: 1, title: "der rumpf", why: "zwei objekte, achtzig prozent des nutzens" },
+	{ n: 2, title: "argumente", why: "der häufigste kleine edit" },
+	{ n: 3, title: "kontrollfluss und aufrufe", why: "größere umbauten in einem zug" },
+	{ n: 4, title: "zuweisungen und kombination", why: "präzision, dann tempo" }
+];
+
+const STORE = "textobjekt-drills-v1";
+
+function loadDone() {
+	try {
+		const raw = localStorage.getItem(STORE);
+		return raw ? new Set(JSON.parse(raw)) : new Set();
+	} catch (e) {
+		return new Set();
+	}
+}
+
+function saveDone(set) {
+	try {
+		localStorage.setItem(STORE, JSON.stringify([...set]));
+	} catch (e) { /* private mode or storage blocked — progress just won't persist */ }
+}
+
+let done = loadDone();
+
+function drillId(d, i) { return "d" + i + "-" + d.keys.replace(/[^a-zA-Z=<>]/g, ""); }
+
+function renderDrills() {
+	const root = document.getElementById("drills");
+	root.textContent = "";
+
+	STAGES.forEach(st => {
+		const wrap = document.createElement("div");
+		wrap.className = "stage";
+
+		const head = document.createElement("div");
+		head.className = "stage-head";
+		head.innerHTML = '<span class="stage-num">stufe ' + st.n + '</span>' +
+			"<h3>" + escapeHtml(st.title) + "</h3>" +
+			'<span class="stage-why">' + escapeHtml(st.why) + "</span>";
+		wrap.appendChild(head);
+
+		DRILLS.forEach((d, i) => {
+			if (d.stage !== st.n) return;
+			const id = drillId(d, i);
+			const row = document.createElement("div");
+			row.className = "drill" + (done.has(id) ? " done" : "");
+
+			const cb = document.createElement("input");
+			cb.type = "checkbox";
+			cb.checked = done.has(id);
+			cb.id = id;
+			cb.setAttribute("aria-label", "drill " + d.keys.replace(/&lt;/g, "<").replace(/&gt;/g, ">") + " erledigt");
+			cb.addEventListener("change", () => {
+				if (cb.checked) done.add(id); else done.delete(id);
+				saveDone(done);
+				row.classList.toggle("done", cb.checked);
+				renderProgress();
+			});
+			row.appendChild(cb);
+
+			const body = document.createElement("div");
+			body.className = "drill-body";
+
+			let html = '<div class="drill-cmd"><span class="keys">' + d.keys + '</span>' +
+				'<span class="what">' + escapeHtml(d.what) + "</span></div>" +
+				"<p>" + escapeHtml(d.note) + "</p>";
+
+			if (d.before) {
+				html += '<div class="pair">' +
+					'<div><span class="pair-label">vorher</span><pre>' + d.before + "</pre></div>" +
+					'<div><span class="pair-label">nachher</span><pre>' + d.after + "</pre></div>" +
+					"</div>";
+			}
+
+			body.innerHTML = html;
+			row.appendChild(body);
+			wrap.appendChild(row);
+		});
+
+		root.appendChild(wrap);
+	});
+
+	renderProgress();
+}
+
+function renderProgress() {
+	const total = DRILLS.length;
+	const n = done.size;
+	document.getElementById("count").textContent = n + " / " + total;
+	document.getElementById("fill").style.width = (total ? (n / total) * 100 : 0) + "%";
+}
+
+document.getElementById("reset").addEventListener("click", () => {
+	done = new Set();
+	saveDone(done);
+	renderDrills();
+});
+
+renderChips();
+renderOut();
+renderDrills();
+</script>
