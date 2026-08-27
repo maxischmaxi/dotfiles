@@ -397,13 +397,20 @@ require("nvim-treesitter").install({
 vim.api.nvim_create_autocmd("FileType", {
 	callback = function(args)
 		local lang = vim.treesitter.language.get_lang(vim.bo[args.buf].filetype)
-		if lang and vim.treesitter.language.add(lang) then
-			vim.treesitter.start(args.buf, lang)
-			-- Treesitter-Indent ist fuer Rust fehlerhaft (verschachtelte Struct-Literale
-			-- verrutschen) -> dort Neovims eingebauten Indent (runtime/indent/rust.vim) behalten
-			if vim.bo[args.buf].filetype ~= "rust" then
-				vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
-			end
+		if not (lang and vim.treesitter.language.add(lang)) then
+			return
+		end
+		-- treesitter.start() turns off the regex syntax, so a parser without a highlights
+		-- query leaves the buffer completely unhighlighted -> keep the syntax fallback
+		local ok, highlights = pcall(vim.treesitter.query.get, lang, "highlights")
+		if not ok or not highlights then
+			return
+		end
+		vim.treesitter.start(args.buf, lang)
+		-- Treesitter-Indent ist fuer Rust fehlerhaft (verschachtelte Struct-Literale
+		-- verrutschen) -> dort Neovims eingebauten Indent (runtime/indent/rust.vim) behalten
+		if vim.bo[args.buf].filetype ~= "rust" then
+			vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
 		end
 	end,
 })
