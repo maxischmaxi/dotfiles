@@ -392,6 +392,38 @@ require("nvim-treesitter").install({
 	"html",
 	-- noice highlights the search cmdline with this one
 	"regex",
+	-- config formats
+	"ini",
+	"toml",
+	"yaml",
+	"xml",
+	"csv",
+	"desktop",
+	"editorconfig",
+	"ssh_config",
+	"hyprlang",
+	-- build / tooling
+	"make",
+	"cmake",
+	"just",
+	"dockerfile",
+	"terraform",
+	-- git
+	"gitcommit",
+	"gitignore",
+	"gitattributes",
+	"git_config",
+	"git_rebase",
+	-- languages with an lsp configured below
+	"odin",
+	"glsl",
+	"sql",
+	"prisma",
+	"scss",
+	"asm",
+	"templ",
+	"gomod",
+	"gosum",
 })
 
 vim.api.nvim_create_autocmd("FileType", {
