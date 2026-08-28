@@ -9,6 +9,10 @@
 - when you move or rename files inside a git repository always use git mv so git tracks it correctly
 - always answer in lowercase in any language except if you're told otherwise
 
+# general info
+
+- we're using arch/hyprland keep in mind that if you control windows like chrome etc that we have a tiling window manager and windows might be very small due to that
+
 # Tailwind CSS
 
 - Niemals arbitrary values (`z-[2]`, `mt-[13px]`, `gap-[7]`, `p-[4]`) verwenden, wenn die native Scale dasselbe ausdrücken kann. Tailwind v4 erlaubt nackte Zahlen für viele Utilities (Spacing, z-index, grid, etc.) — bevorzuge `z-2`, `mt-13`, `gap-7`.
