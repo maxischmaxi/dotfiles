@@ -155,7 +155,7 @@ hl.config({
 		-- (decoration.dim_inactive below). The colors stay in case border_size
 		-- ever goes above 0 again — hardcoded so the matugen refresh cannot
 		-- brighten them.
-		border_size = 0,
+		border_size = 3,
 		col = {
 			active_border = "rgb(5a6b8c)",
 			inactive_border = "rgb(000000)",
@@ -227,13 +227,13 @@ hl.config({
 	},
 
 	decoration = {
-		rounding = 10,
+		rounding = 0,
 		rounding_power = 2,
 		active_opacity = 1.0,
-		inactive_opacity = 0.9,
+		inactive_opacity = 1.0,
 		-- Focus marker instead of a border: everything inactive gets darkened.
 		-- dim_strength is 0..1, upstream default is 0.5.
-		dim_inactive = true,
+		dim_inactive = false,
 		dim_strength = 0.3,
 		shadow = {
 			-- Off in every layout mode: render_power 3 is the priciest step and
@@ -640,7 +640,10 @@ hl.on("layer.opened", function(layer)
 			for _, direction in ipairs({ "left", "right", "up", "down" }) do
 				table.insert(
 					selection_binds,
-					hl.bind(direction:upper(), hl.dsp.exec_cmd(scripts .. "capture-region.sh --select-window " .. direction))
+					hl.bind(
+						direction:upper(),
+						hl.dsp.exec_cmd(scripts .. "capture-region.sh --select-window " .. direction)
+					)
 				)
 			end
 		end
