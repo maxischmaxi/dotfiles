@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "token-reporter",
+  "displayName": "Project Token Reporter",
+  "version": "1.0.0",
+  "description": "Meldet den Claude-Code-Token-Verbrauch pro Projekt nach jedem Turn und am Session-Ende an eine REST-API.",
+  "author": {
+    "name": "max",
+    "email": "claude+1@logic-joe.com"
+  },
+  "keywords": ["tokens", "usage", "telemetry", "rest", "reporting", "cost", "metrics"],
+  "license": "MIT",
+  "defaultEnabled": false
+}

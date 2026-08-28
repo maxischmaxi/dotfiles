@@ -15,3 +15,6 @@ tmux-sessionizer
 tmux-window-navigation.sh
 update-nvim.sh
 shell
+.stowrc
+ac
+.luarc.json

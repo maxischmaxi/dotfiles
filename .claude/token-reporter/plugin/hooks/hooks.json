@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/report-tokens.mjs\"",
+            "timeout": 10,
+            "async": true,
+            "statusMessage": "Token-Verbrauch melden..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/report-tokens.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
