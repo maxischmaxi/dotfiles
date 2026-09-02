@@ -6,7 +6,7 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 
-const MODEL = "glm-5.3-flash:cloud";
+const MODEL = "glm-5.3:cloud";
 // Marks reviewer sessions on disk so prune-review-sessions.mjs can find them.
 const SESSION_NAME = "claude-code-plan-review";
 const DEFAULT_TIMEOUT_MS = 540_000;
