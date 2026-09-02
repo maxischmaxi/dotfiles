@@ -36,6 +36,54 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
+vim.api.nvim_create_autocmd("LspAttach", {
+	group = vim.api.nvim_create_augroup("custom-lsp-attach", { clear = true }),
+	callback = function(ev)
+		local map = function(keys, func, desc, mode)
+			mode = mode or "n"
+			vim.keymap.set(mode, keys, func, { buffer = ev.buf, desc = "LSP: " .. desc })
+		end
+
+		local client = vim.lsp.get_client_by_id(ev.data.client_id)
+		if not client then
+			return
+		end
+
+		if client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, ev.buf) then
+			local highlight_augroup = vim.api.nvim_create_augroup("custom-lsp-highlight", { clear = false })
+			vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
+				buffer = ev.buf,
+				group = highlight_augroup,
+				callback = vim.lsp.buf.document_highlight,
+			})
+
+			vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+				buffer = ev.buf,
+				group = highlight_augroup,
+				callback = vim.lsp.buf.clear_references,
+			})
+
+			vim.api.nvim_create_autocmd("LspDetach", {
+				group = vim.api.nvim_create_augroup("custom-lsp-detach", { clear = true }),
+				callback = function(ev2)
+					vim.lsp.buf.clear_references()
+					vim.api.nvim_clear_autocmds({ group = "custom-lsp-highlight", buffer = ev2.buf })
+				end,
+			})
+		end
+
+		if client:supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint, ev.buf) then
+			map("<leader>th", function()
+				vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = ev.buf }))
+			end, "[T]oggle Inlay [H]ints")
+		end
+
+		if client:supports_method(vim.lsp.protocol.Methods.textDocument_codeAction, ev.buf) then
+			map("<leader>ca", vim.lsp.buf.code_action, "[C]ode [A]ctions")
+		end
+	end,
+})
+
 vim.api.nvim_create_autocmd("BufWritePre", {
 	desc = "Apply eslint --fix on save",
 	pattern = { "*.js", "*.ts", "*.jsx", "*.tsx", "*.mjs", "*.cjs", "*.mts", "*.cts" },

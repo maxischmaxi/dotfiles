@@ -34,7 +34,6 @@ set("n", "<leader>cp", "<cmd>cprev<CR>zz", { desc = "Go to previous quickfix ite
 
 set("n", "<leader>+", ':exe "vertical resize " . (winwidth(0) * 4/1)<CR>', { silent = true })
 set("n", "<leader>-", ':exe "vertical resize " . (winwidth(0) * 1/4)<CR>', { silent = true })
-set("n", "<C-b>", "<CMD>Oil<CR>", { desc = "Open Oil" })
 
 set("n", "gK", function()
 	local ok, err = pcall(vim.cmd, "Man " .. vim.fn.expand("<cword>"))

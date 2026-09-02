@@ -9,6 +9,7 @@ require("config.keymaps")
 require("config.autocmds")
 
 require("config.ui")
+require("config.explorer")
 require("config.editing")
 require("config.telescope")
 require("config.treesitter")

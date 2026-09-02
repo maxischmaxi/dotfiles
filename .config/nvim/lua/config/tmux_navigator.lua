@@ -14,7 +14,7 @@ end
 M.tmux_yabai_or_split_switch = tmux_yabai_or_split_switch
 
 vim.api.nvim_create_autocmd("FileType", {
-	pattern = "oil",
+	pattern = { "oil", "netrw" },
 	callback = function()
 		vim.keymap.set("n", "<C-h>", function()
 			tmux_yabai_or_split_switch("h", "west")

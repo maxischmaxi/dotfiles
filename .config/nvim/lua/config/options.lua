@@ -1,3 +1,7 @@
+-- File explorer backend: "netrw" (built-in) or "oil" (plugin).
+-- Read by config.pack (whether to download oil.nvim) and config.explorer.
+vim.g.file_explorer = "netrw"
+
 vim.o.number = true
 vim.o.relativenumber = false
 vim.o.wrap = true

@@ -1,5 +1,4 @@
 vim.pack.add({
-	"https://github.com/stevearc/oil.nvim",
 	"https://github.com/nvim-telescope/telescope.nvim",
 	"https://github.com/nvim-lua/plenary.nvim",
 	"https://github.com/nvim-telescope/telescope-fzf-native.nvim",
@@ -38,6 +37,11 @@ vim.pack.add({
 	"https://github.com/theHamsta/nvim-dap-virtual-text",
 	"https://github.com/leoluz/nvim-dap-go",
 })
+
+-- only pulled in when it is the selected file explorer, see config.explorer
+if vim.g.file_explorer == "oil" then
+	vim.pack.add({ "https://github.com/stevearc/oil.nvim" })
+end
 
 local hooks = function(ev)
 	local name, kind = ev.data.spec.name, ev.data.kind
