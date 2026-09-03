@@ -15,7 +15,6 @@ vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.updatetime = 250
 vim.o.timeoutlen = 300
-vim.o.completeopt = "menuone,noselect"
 vim.o.scrolloff = 12
 vim.o.foldmethod = "expr"
 vim.o.foldexpr = "v:lua.vim.treesitter.foldexpr()"
@@ -53,5 +52,3 @@ vim.o.clipboard = "unnamedplus"
 -- 80er-Ruler: colorcolumn zeichnet nur, wenn die Zeile kuerzer als 80 ist,
 -- nativ in C statt per-Line-Lua in einem Decoration-Provider
 vim.o.colorcolumn = "80"
-
-vim.filetype.add({ extension = { jsonc = "jsonc" } })

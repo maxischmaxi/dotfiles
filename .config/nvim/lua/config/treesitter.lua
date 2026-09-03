@@ -1,58 +1,9 @@
-require("nvim-treesitter").install({
-	"c",
-	"cpp",
-	"go",
-	"lua",
-	"python",
-	"rust",
-	"tsx",
-	"javascript",
-	"typescript",
-	"vimdoc",
-	"vim",
-	"bash",
-	"css",
-	"gleam",
-	"json",
-	"html",
-	-- noice highlights the search cmdline with this one
-	"regex",
-	-- marksman + render targets
-	"markdown",
-	"markdown_inline",
-	-- config formats
-	"ini",
-	"toml",
-	"yaml",
-	"xml",
-	"csv",
-	"desktop",
-	"editorconfig",
-	"ssh_config",
-	"hyprlang",
-	-- build / tooling
-	"make",
-	"cmake",
-	"just",
-	"dockerfile",
-	"terraform",
-	-- git
-	"gitcommit",
-	"gitignore",
-	"gitattributes",
-	"git_config",
-	"git_rebase",
-	-- languages with an lsp configured below
-	"odin",
-	"glsl",
-	"sql",
-	"prisma",
-	"scss",
-	"asm",
-	"templ",
-	"gomod",
-	"gosum",
-})
+-- Parsers (config.parsers) are installed from the PackChanged hook in
+-- config.pack when nvim-treesitter is installed or updated; calling install()
+-- on every start costs a few ms for nothing.
+vim.api.nvim_create_user_command("TSInstallAll", function()
+	require("nvim-treesitter").install(require("config.parsers"))
+end, { desc = "Install every parser listed in config.parsers" })
 
 vim.api.nvim_create_autocmd("FileType", {
 	callback = function(args)

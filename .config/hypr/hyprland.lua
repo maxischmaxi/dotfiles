@@ -114,7 +114,7 @@ hl.exec_cmd('gsettings set org.gnome.desktop.default-applications.terminal exec-
 -- Autostart (einmalig beim Hyprland-Start = vormals exec-once)
 ------------------------------------------------------------------
 hl.on("hyprland.start", function()
-	hl.exec_cmd("/home/max/.config/hypr/scripts/pip-autofloat.py")
+	hl.exec_cmd("~/.config/hypr/scripts/pip-autofloat.py")
 	hl.exec_cmd(
 		"dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE"
 	)
@@ -151,10 +151,10 @@ hl.config({
 		layout = mode.layout,
 		gaps_in = mode.gaps_in,
 		gaps_out = mode.gaps_out,
-		-- No borders: focus is marked by dimming the inactive windows instead
-		-- (decoration.dim_inactive below). The colors stay in case border_size
-		-- ever goes above 0 again — hardcoded so the matugen refresh cannot
-		-- brighten them.
+		-- Focus is marked by the border. The alternative is dimming the inactive
+		-- windows (decoration.dim_inactive below): set border_size = 0 and
+		-- dim_inactive = true to switch. Colors are hardcoded so the matugen
+		-- refresh cannot brighten them.
 		border_size = 3,
 		col = {
 			active_border = "rgb(5a6b8c)",
@@ -231,8 +231,9 @@ hl.config({
 		rounding_power = 2,
 		active_opacity = 1.0,
 		inactive_opacity = 1.0,
-		-- Focus marker instead of a border: everything inactive gets darkened.
-		-- dim_strength is 0..1, upstream default is 0.5.
+		-- Off: the border marks focus (general.border_size). With it on, every
+		-- inactive window gets darkened; dim_strength is 0..1, upstream default
+		-- is 0.5. The no_dim window rules below only matter when this is on.
 		dim_inactive = false,
 		dim_strength = 0.3,
 		shadow = {
@@ -984,7 +985,7 @@ hl.window_rule({ match = { class = "^(org\\.gnome\\.NautilusPreviewer)$" }, no_d
 hl.window_rule({
 	match = {
 		class = "^(org\\.gnome\\.Nautilus)$",
-		title = "^(Open.*Files?|Open [F|f]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to [open|save].*|[C|c]hoose.*)",
+		title = "^(Open.*Files?|Open [Ff]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to (open|save).*|[Cc]hoose.*)",
 	},
 	float = true,
 })

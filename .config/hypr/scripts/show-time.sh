@@ -1,5 +1,4 @@
 #!/bin/bash
-TIME=$(date '+%H:%M')
-DATE=$(date '+%A, %d. %B %Y')
-WEEK=$(date '+KW %V')
+# one date call instead of three
+IFS='|' read -r TIME DATE WEEK < <(date '+%H:%M|%A, %d. %B %Y|KW %V')
 notify-send -a "clock" -u low -t 3000 "$TIME" "$DATE  |  $WEEK"

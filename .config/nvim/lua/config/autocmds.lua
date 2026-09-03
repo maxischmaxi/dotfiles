@@ -16,25 +16,19 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
-vim.api.nvim_create_autocmd("LspNotify", {
-	group = vim.api.nvim_create_augroup("custom-lsp-fold-imports", { clear = true }),
-	callback = function(ev)
-		if ev.data.method == "textDocument/didOpen" then
-			vim.lsp.foldclose("imports", vim.fn.bufwinid(ev.buf))
-		end
-	end,
-})
-
 vim.api.nvim_create_autocmd("LspAttach", {
 	group = vim.api.nvim_create_augroup("custom-lsp-codelens", { clear = true }),
 	callback = function(ev)
 		local client = vim.lsp.get_client_by_id(ev.data.client_id)
-		if client:supports_method("textDocument/codeLens", ev.buf) then
+		if client and client:supports_method("textDocument/codeLens", ev.buf) then
 			vim.lsp.codelens.enable(true, { bufnr = ev.buf })
 			vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, { buffer = ev.buf, desc = "Run code lens" })
 		end
 	end,
 })
+
+-- cursor-hold reference highlighting, one augroup shared by all buffers
+local highlight_augroup = vim.api.nvim_create_augroup("custom-lsp-highlight", { clear = true })
 
 vim.api.nvim_create_autocmd("LspAttach", {
 	group = vim.api.nvim_create_augroup("custom-lsp-attach", { clear = true }),
@@ -50,7 +44,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
 		end
 
 		if client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, ev.buf) then
-			local highlight_augroup = vim.api.nvim_create_augroup("custom-lsp-highlight", { clear = false })
+			-- a second capable client on the same buffer must not double the requests
+			vim.api.nvim_clear_autocmds({ group = highlight_augroup, buffer = ev.buf })
+
 			vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
 				buffer = ev.buf,
 				group = highlight_augroup,
@@ -61,14 +57,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
 				buffer = ev.buf,
 				group = highlight_augroup,
 				callback = vim.lsp.buf.clear_references,
-			})
-
-			vim.api.nvim_create_autocmd("LspDetach", {
-				group = vim.api.nvim_create_augroup("custom-lsp-detach", { clear = true }),
-				callback = function(ev2)
-					vim.lsp.buf.clear_references()
-					vim.api.nvim_clear_autocmds({ group = "custom-lsp-highlight", buffer = ev2.buf })
-				end,
 			})
 		end
 
@@ -81,6 +69,14 @@ vim.api.nvim_create_autocmd("LspAttach", {
 		if client:supports_method(vim.lsp.protocol.Methods.textDocument_codeAction, ev.buf) then
 			map("<leader>ca", vim.lsp.buf.code_action, "[C]ode [A]ctions")
 		end
+	end,
+})
+
+vim.api.nvim_create_autocmd("LspDetach", {
+	group = vim.api.nvim_create_augroup("custom-lsp-detach", { clear = true }),
+	callback = function(ev)
+		vim.lsp.buf.clear_references()
+		vim.api.nvim_clear_autocmds({ group = highlight_augroup, buffer = ev.buf })
 	end,
 })
 

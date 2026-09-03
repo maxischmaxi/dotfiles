@@ -24,9 +24,11 @@ nvm() {                       # Lazy-Stub: erster Aufruf lädt das echte nvm
   nvm "$@"
 }
 
-export PATH="$PATH:$ANDROID_HOME/emulator"
-export PATH="$PATH:$ANDROID_HOME/platform-tools"
-export PATH="$PATH:$HOME/.cargo/bin"
+# Every entry below is guarded: a directory that does not exist still costs a
+# stat on every command lookup miss and shows up in rehash/completion.
+for _p in "$ANDROID_HOME/emulator" "$ANDROID_HOME/platform-tools" "$HOME/.cargo/bin"; do
+  [[ -d "$_p" ]] && path+=("$_p")
+done
 
 # node_modules/.bin des aktuellen Projekts — dynamisch, per chpwd.
 # Vorher stand hier `PATH=$PATH:$PWD/node_modules/.bin`: $PWD wurde EINMAL
@@ -55,32 +57,27 @@ _nm_bin_update
 # Mason bringt z.B. ein eigenes jq mit, das hier nicht das System-jq verdecken soll.
 [[ -d "$HOME/.local/share/nvim/mason/bin" ]] && export PATH="$PATH:$HOME/.local/share/nvim/mason/bin"
 
-export PATH="$PATH:$HOME/emsdk"
-export PATH="$PATH:$HOME/emsdk/upstream/emscripten"
-export PATH="$PATH:$HOME/.npm-global/bin"
-export PATH="$PATH:$HOME/mongodb/bin"
-export PATH="$PATH:$HOME/dotfiles"
-export PATH="$PATH:$HOME/.local/bin"
-export PATH="$PATH:$HOME/flutter/bin"
-export PATH="$PATH:$HOME/Odin"
+for _p in \
+  "$HOME/emsdk" \
+  "$HOME/emsdk/upstream/emscripten" \
+  "$HOME/.npm-global/bin" \
+  "$HOME/mongodb/bin" \
+  "$HOME/dotfiles" \
+  "$HOME/.local/bin" \
+  "$HOME/flutter/bin" \
+  "$HOME/Odin" \
+  "$HOME/.deno/bin" \
+  "$HOME/depot_tools" \
+  "$HOME/.lmstudio/bin"; do
+  [[ -d "$_p" ]] && path+=("$_p")
+done
+unset _p
 
-if [[ -d "$HOME/.deno/bin" ]]; then
-    export PATH="$PATH:$HOME/.deno/bin"
-fi
-
-if [[ -d "$HOME/depot_tools" ]]; then
-    export PATH="$PATH:$HOME/depot_tools"
-fi
-
-# bun
+# bun and kimi go to the front on purpose
 if [[ -d "$HOME/.bun" ]]; then
     export BUN_INSTALL="$HOME/.bun"
-    export PATH="$BUN_INSTALL/bin:$PATH"
+    path=("$BUN_INSTALL/bin" $path)
 fi
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
-if [[ -d "$HOME/.lmstudio/bin" ]]; then
-    export PATH="$PATH:$HOME/.lmstudio/bin"
-fi
-
-export PATH="$HOME/.kimi-code/bin:$PATH"
+[[ -d "$HOME/.kimi-code/bin" ]] && path=("$HOME/.kimi-code/bin" $path)

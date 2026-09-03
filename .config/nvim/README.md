@@ -2,9 +2,9 @@
 
 ## Installation
 
-1. Clone this repo to `~/.config/nvim`
-2. Install Tmux `$ brew install tmux`
-3. Install Github Copilot `git clone https://github.com/github/copilot.vim.git ~/.config/nvim/pack/github/start/copilot.vim`
+Symlinked from `~/dotfiles` via `stow .`. Plugins are managed by `vim.pack`
+and installed on the first start; `:PackUpdate` updates them, `:TSInstallAll`
+installs the treesitter parsers from `lua/config/parsers.lua`.
 
 ## Keymaps
 

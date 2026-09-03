@@ -11,7 +11,7 @@
 # $PROJECTS_DIR kommt normalerweise aus der zshrc; beim Aufruf aus einem
 # tmux-Popup kann die Env aber vom Server-Start stammen und die Variable
 # fehlen — deshalb hier dieselbe Quelle sourcen statt den Pfad zu duplizieren.
-source "$HOME/.config/shell/projects-dir.sh"
+source "$HOME/dotfiles/projects-dir.sh"
 
 if [[ $# -eq 1 ]]; then
     selected=$1

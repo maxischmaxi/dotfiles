@@ -1,0 +1,57 @@
+-- Treesitter parsers to keep installed. Read by the PackChanged hook in
+-- config.pack (install/update of nvim-treesitter) and by :TSInstallAll.
+return {
+	"c",
+	"cpp",
+	"go",
+	"lua",
+	"python",
+	"rust",
+	"tsx",
+	"javascript",
+	"typescript",
+	"vimdoc",
+	"vim",
+	"bash",
+	"css",
+	"gleam",
+	"json",
+	"html",
+	-- noice highlights the search cmdline with this one
+	"regex",
+	-- marksman + render targets
+	"markdown",
+	"markdown_inline",
+	-- config formats
+	"ini",
+	"toml",
+	"yaml",
+	"xml",
+	"csv",
+	"desktop",
+	"editorconfig",
+	"ssh_config",
+	"hyprlang",
+	-- build / tooling
+	"make",
+	"cmake",
+	"just",
+	"dockerfile",
+	"terraform",
+	-- git
+	"gitcommit",
+	"gitignore",
+	"gitattributes",
+	"git_config",
+	"git_rebase",
+	-- languages with an lsp configured in config.lsp
+	"odin",
+	"glsl",
+	"sql",
+	"prisma",
+	"scss",
+	"asm",
+	"templ",
+	"gomod",
+	"gosum",
+}

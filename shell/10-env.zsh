@@ -4,8 +4,6 @@
 # bevor die PATH-Appends in 20-path darauf zugreifen.
 # ══════════════════════════════════════════════════════════════════════
 
-. "$HOME/.local/share/../bin/env"
-
 # --- PROJECTS_DIR: wo die Code-Projekte liegen -----------------------
 # Single Source of Truth (siehe ~/dotfiles/projects-dir.sh). Muss vor
 # allem stehen, was Projektpfade braucht (vault, tmux-sessionizer).
@@ -31,7 +29,7 @@ export __VK_LAYER_NV_optimus="NVIDIA_only"
 
 # --- Wayland / Session ---
 export XDG_SESSION_TYPE="wayland"
-export XDG_DATA_DIRS="/usr/share:usr/local/share:$HOME/.local/share"
+export XDG_DATA_DIRS="/usr/share:/usr/local/share:$HOME/.local/share"
 
 # Compositor-Erkennung: Sway setzt SWAYSOCK, Hyprland setzt HYPRLAND_INSTANCE_SIGNATURE
 if [[ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]]; then
@@ -64,7 +62,4 @@ if [[ -d "$HOME/go" ]]; then
     export PATH="$PATH:$HOME/go/bin"
 fi
 
-export ENV=development
 export EDITOR="nvim"
-
-export DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"

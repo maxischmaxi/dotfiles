@@ -54,7 +54,7 @@ blink_cmp.setup({
 
 vim.diagnostic.config({
 	severity_sort = true,
-	float = { border = "rounded", source = "if_many" },
+	float = { source = "if_many" },
 	underline = { severity = vim.diagnostic.severity.ERROR },
 	signs = vim.g.have_nerd_font and {
 		text = {
@@ -127,15 +127,19 @@ local servers = {
 		},
 	},
 	stylelint_lsp = { mason = "stylelint-language-server" },
+	-- the schemastore catalogue is a few ms to load, so both servers pull it in
+	-- via before_init instead of at startup
 	jsonls = {
 		mason = "json-lsp",
 		filetypes = { "json", "jsonc" },
 		settings = {
 			json = {
 				validate = { enable = true },
-				schemas = require("schemastore").json.schemas(),
 			},
 		},
+		before_init = function(_, config)
+			config.settings.json.schemas = require("schemastore").json.schemas()
+		end,
 	},
 	yamlls = {
 		mason = "yaml-language-server",
@@ -143,11 +147,13 @@ local servers = {
 			yaml = {
 				-- SchemaStore supplies the catalogue, so yamlls' own store must be off
 				schemaStore = { enable = false, url = "" },
-				schemas = require("schemastore").yaml.schemas(),
 				validate = true,
 				keyOrdering = false,
 			},
 		},
+		before_init = function(_, config)
+			config.settings.yaml.schemas = require("schemastore").yaml.schemas()
+		end,
 	},
 	taplo = { mason = "taplo" },
 	jqls = { mason = "jq-lsp" },
@@ -272,27 +278,12 @@ for server_name, server_config in pairs(servers) do
 end
 
 require("mason").setup()
-require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
+require("mason-tool-installer").setup({
+	ensure_installed = ensure_installed,
+	-- checking ~55 tools on every start is wasted work, once a day is plenty
+	debounce_hours = 24,
+})
 vim.lsp.enable(vim.tbl_keys(servers))
-
-vim.api.nvim_create_user_command("LspRestart", function()
-	local clients = vim.lsp.get_clients()
-	if #clients == 0 then
-		vim.notify("No active LSP clients", vim.log.levels.INFO)
-		return
-	end
-	local names = {}
-	for _, client in ipairs(clients) do
-		table.insert(names, client.name)
-		client:stop()
-	end
-	vim.defer_fn(function()
-		for _, name in ipairs(names) do
-			vim.lsp.enable(name)
-		end
-		vim.notify("Restarted: " .. table.concat(names, ", "), vim.log.levels.INFO)
-	end, 500)
-end, { desc = "Restart all LSP clients" })
 
 vim.lsp.config("wcag_lsp", {
 	cmd = { "wcag-lsp" },

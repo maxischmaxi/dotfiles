@@ -27,16 +27,6 @@ vim.cmd([[ colorscheme tokyonight-night ]])
 -- })
 -- vim.cmd([[ colorscheme orng ]])
 
-require("dressing").setup({
-	input = {
-		relative = "cursor",
-		prefer_width = 60,
-	},
-	select = {
-		backend = { "telescope", "builtin" },
-	},
-})
-
 require("noice").setup({
 	lsp = {
 		-- blink.cmp renders signature help itself

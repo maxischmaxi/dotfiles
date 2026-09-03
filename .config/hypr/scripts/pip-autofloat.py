@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Listens to Hyprland socket2. When a new google-chrome-beta window opens
+# Listens to Hyprland socket2. When a new google-chrome(-beta) window opens
 # whose initial title starts with "Google Meet", float and pin it.
 # Catches Google Meet's Document-Picture-in-Picture popout which otherwise
-# gets auto-tiled into the active hy3 tab group.
+# gets auto-tiled.
 
 import os, socket, subprocess, sys, time
 
@@ -10,7 +10,7 @@ sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
 if not sig:
     sys.exit("HYPRLAND_INSTANCE_SIGNATURE not set")
 
-LOG = open("/tmp/pip-autofloat.log", "a", buffering=1)
+LOG = open("/tmp/pip-autofloat.log", "w", buffering=1)
 def log(msg): LOG.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
 
 log(f"starting, sig={sig}")

@@ -1,5 +1,6 @@
--- Debugging (nvim-dap + dap-ui): wird erst beim ersten Debug-Keybinding geladen,
--- damit dap/nio/dap-ui beim normalen Start keine Zeit kosten.
+-- Debugging (nvim-dap + dap-ui): the plugins are only added to the
+-- runtimepath and set up on the first debug keymap, so a normal start pays
+-- nothing for them.
 
 local M = { loaded = false }
 
@@ -10,6 +11,15 @@ function M.setup()
 		return
 	end
 	M.loaded = true
+
+	-- nvim-nio is a hard dependency of dap-ui
+	vim.pack.add({
+		"https://github.com/mfussenegger/nvim-dap",
+		"https://github.com/nvim-neotest/nvim-nio",
+		"https://github.com/rcarriga/nvim-dap-ui",
+		"https://github.com/theHamsta/nvim-dap-virtual-text",
+		"https://github.com/leoluz/nvim-dap-go",
+	})
 
 	local dap = require("dap")
 	local dapui = require("dapui")
@@ -106,8 +116,8 @@ function M.setup()
 	vim.fn.sign_define("DapStopped", { text = "▶", texthl = "DiagnosticSignWarn", linehl = "Visual", numhl = "" })
 end
 
--- Leichtgewichtige Trigger-Keymaps: jeder erste Tastendruck laedt dap + dap-ui
--- und fuehrt dann die eigentliche Aktion aus.
+-- Lightweight trigger keymaps: the first press loads dap + dap-ui and then
+-- runs the actual action.
 local set = vim.keymap.set
 
 -- function keys for step control (layout independent), <leader>b for breakpoints

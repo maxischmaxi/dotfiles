@@ -1,7 +1,9 @@
 .git
 chrome-extensions
 README.md
+docs
 update-nvim.sh
+setup-git.sh
 diskhog
 fzf.zsh
 gamescope-debug.sh
@@ -10,10 +12,8 @@ git-gone
 open-in-editor.sh
 projects-dir.sh
 tmux-ghostty-shader
-tmux-navigator.lua
 tmux-sessionizer
 tmux-window-navigation.sh
-update-nvim.sh
 shell
 .stowrc
 ac

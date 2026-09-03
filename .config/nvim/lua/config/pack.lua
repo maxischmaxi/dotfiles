@@ -1,7 +1,37 @@
+-- Build steps run from PackChanged. Registered before vim.pack.add(), so a
+-- fresh install triggers them as well.
+vim.api.nvim_create_autocmd("PackChanged", {
+	group = vim.api.nvim_create_augroup("custom-pack-hooks", { clear = true }),
+	callback = function(ev)
+		local name, kind = ev.data.spec.name, ev.data.kind
+		if kind ~= "install" and kind ~= "update" then
+			return
+		end
+
+		if name == "telescope-fzf-native.nvim" then
+			if vim.fn.executable("make") == 1 then
+				vim.system({ "make" }, { cwd = ev.data.path })
+			else
+				vim.notify("make not found: telescope-fzf-native.nvim not built", vim.log.levels.WARN)
+			end
+		elseif name == "nvim-treesitter" then
+			-- scheduled: during a fresh install the plugin is not on the rtp yet
+			vim.schedule(function()
+				local ts = require("nvim-treesitter")
+				ts.install(require("config.parsers"))
+				if kind == "update" then
+					ts.update()
+				end
+			end)
+		end
+	end,
+})
+
 vim.pack.add({
 	"https://github.com/nvim-telescope/telescope.nvim",
 	"https://github.com/nvim-lua/plenary.nvim",
 	"https://github.com/nvim-telescope/telescope-fzf-native.nvim",
+	"https://github.com/nvim-telescope/telescope-ui-select.nvim",
 	"https://github.com/nvim-treesitter/nvim-treesitter",
 	"https://github.com/nvim-treesitter/nvim-treesitter-textobjects",
 	"https://github.com/nvim-treesitter/nvim-treesitter-context",
@@ -30,12 +60,7 @@ vim.pack.add({
 	"https://github.com/maxischmaxi/inc-select.nvim",
 	"https://github.com/MunifTanjim/nui.nvim",
 	"https://github.com/folke/noice.nvim",
-	-- debugging: nvim-nio is a hard dependency of dap-ui
-	"https://github.com/mfussenegger/nvim-dap",
-	"https://github.com/nvim-neotest/nvim-nio",
-	"https://github.com/rcarriga/nvim-dap-ui",
-	"https://github.com/theHamsta/nvim-dap-virtual-text",
-	"https://github.com/leoluz/nvim-dap-go",
+	-- the debugging stack (nvim-dap, nio, dap-ui, ...) is added in config.dap on first use
 })
 
 -- only pulled in when it is the selected file explorer, see config.explorer
@@ -43,20 +68,8 @@ if vim.g.file_explorer == "oil" then
 	vim.pack.add({ "https://github.com/stevearc/oil.nvim" })
 end
 
-local hooks = function(ev)
-	local name, kind = ev.data.spec.name, ev.data.kind
-
-	if name == "telescope-fzf-native.nvim" and (kind == "install" or kind == "update") then
-		if vim.fn.executable("make") == 1 then
-			vim.system({ "make" }, { cwd = ev.data.path })
-		else
-			vim.notify("make not found: telescope-fzf-native.nvim not built", vim.log.levels.WARN)
-		end
-	end
-end
-
-vim.api.nvim_create_autocmd("PackChanged", { callback = hooks })
-
+-- vim.pack.update() defaults to every plugin on disk, so the lazily added
+-- debugging plugins are covered too
 vim.api.nvim_create_user_command("PackUpdate", function(info)
 	if #info.fargs ~= 0 then
 		vim.pack.update(info.fargs, { force = info.bang })

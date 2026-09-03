@@ -13,8 +13,7 @@ local Rule = require("nvim-autopairs.rule")
 npairs.setup({
 	check_ts = true,
 	enable_check_bracket_line = false,
-	-- the dressing prompt is a one-line input buffer, pairing there is only in the way
-	disable_filetype = { "TelescopePrompt", "grug-far", "snacks_picker_input", "DressingInput" },
+	disable_filetype = { "TelescopePrompt", "grug-far" },
 	ts_config = {
 		lua = { "string" },
 		javascript = { "template_string" },

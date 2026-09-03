@@ -1,6 +1,22 @@
+-- Sync tabstop/shiftwidth/expandtab with the project's prettier config
+-- (tabWidth/useTabs). Resolution walks upward like prettier does: the first
+-- config file wins, a package.json only counts with a "prettier" key.
 local M = {}
 
+-- resolved options per starting directory, false = nothing found
 local cache = {}
+
+local candidates = {
+	"package.json",
+	".prettierrc",
+	".prettierrc.json",
+	".prettierrc.yml",
+	".prettierrc.yaml",
+	"prettier.config.js",
+}
+
+-- yaml and js configs are read through node
+local reader = vim.fs.joinpath(vim.fn.stdpath("config"), "scripts", "read-prettier.js")
 
 local function read_file(path)
 	local fd = vim.uv.fs_open(path, "r", 438)
@@ -8,203 +24,120 @@ local function read_file(path)
 		return nil
 	end
 	local stat = vim.uv.fs_fstat(fd)
-	local data = vim.uv.fs_read(fd, stat.size, 0)
+	local data = stat and vim.uv.fs_read(fd, stat.size, 0) or nil
 	vim.uv.fs_close(fd)
 	return data
 end
 
-local function json_decode(s)
-	local ok, val = pcall(vim.json.decode, s)
-	if ok then
-		return val
-	end
-	return nil
-end
-
-local function dirname(p)
-	return vim.fs.dirname(p)
-end
-
-local function find_prettier_config(startpath)
-	local candidates = {
-		"package.json",
-		".prettierrc",
-		".prettierrc.json",
-		".prettierrc.yml",
-		".prettierrc.yaml",
-		"prettier.config.js",
-	}
-
-	local found = vim.fs.find(candidates, {
-		path = startpath,
-		upward = true,
-		type = "file",
-	})
-
-	if #found == 0 then
-		return nil
-	end
-	local priority = {}
-	for i, name in ipairs(candidates) do
-		priority[name] = i
-	end
-
-	local best, best_prio = nil, 1e9
-	for _, p in ipairs(found) do
-		local base = p:match("[^/\\]+$") or p
-		local pr = priority[base] or 9999
-		if pr < best_prio then
-			best, best_prio = p, pr
-		end
-	end
-	return best
-end
-
-local function load_prettier_via_node(path)
-	local cmd = { "node", vim.fn.expand("~/.config/nvim/scripts/read-prettier.js"), path }
-	local out = vim.fn.system(cmd)
-	if vim.v.shell_error ~= 0 or not out or out == "" then
-		return nil
-	end
-	return json_decode(out)
-end
-
-local function load_prettier_from_path(path)
-	local base = path:match("[^/\\]+$") or path
+local function read_json(path)
 	local text = read_file(path)
 	if not text then
 		return nil
 	end
+	local ok, val = pcall(vim.json.decode, text)
+	return ok and type(val) == "table" and val or nil
+end
 
-	-- package.json: "prettier" kann Objekt ODER Pfad sein
-	if base == "package.json" then
-		local pkg = json_decode(text)
-		if not pkg then
-			return nil
-		end
-		local prettier = pkg.prettier
-		if type(prettier) == "table" then
-			return prettier
-		elseif type(prettier) == "string" then
-			-- relativen Pfad auflösen und (nur JSON) laden
-			local cfg_path = vim.fs.normalize(dirname(path) .. "/" .. prettier)
-			local cfg_txt = read_file(cfg_path)
-			if not cfg_txt then
-				return nil
+-- async, so opening a file never waits for node
+local function read_via_node(path, cb)
+	if vim.fn.executable("node") ~= 1 then
+		return cb(nil)
+	end
+	vim.system({ "node", reader, path }, { text = true }, function(res)
+		local ok, val = pcall(vim.json.decode, res.stdout or "")
+		cb(res.code == 0 and ok and type(val) == "table" and val or nil)
+	end)
+end
+
+-- calls cb with the options table, or nil when no config applies
+local function resolve(dir, cb)
+	local prev
+	while dir ~= prev do
+		for _, name in ipairs(candidates) do
+			local path = vim.fs.joinpath(dir, name)
+			if vim.uv.fs_stat(path) then
+				if name == "package.json" then
+					local pkg = read_json(path)
+					local prettier = pkg and pkg.prettier
+					if type(prettier) == "table" then
+						return cb(prettier)
+					elseif type(prettier) == "string" then
+						-- a relative path to a json config
+						return cb(read_json(vim.fs.normalize(vim.fs.joinpath(dir, prettier))))
+					end
+					-- no prettier key: keep walking
+				elseif name == ".prettierrc" or name == ".prettierrc.json" then
+					return cb(read_json(path))
+				else
+					return read_via_node(path, cb)
+				end
 			end
-			local cfg = json_decode(cfg_txt)
-			return cfg
-		else
-			return nil
 		end
+		prev, dir = dir, vim.fs.dirname(dir)
 	end
-
-	-- .prettierrc / .prettierrc.json (JSON)
-	if base == ".prettierrc" or base == ".prettierrc.json" then
-		return json_decode(text)
-	end
-
-	-- .prettierrc.yml / .prettierrc.yaml (YAML)
-	if base:match("%.ya?ml$") or base:match("%.js$") then
-		-- YAML via Node laden (Lua/YAML-Parser nicht immer verfügbar)
-		return load_prettier_via_node(path)
-	end
-
-	return nil
+	cb(nil)
 end
 
-local function find_project_root(startpath, cfg_path)
-	-- Versuch Git-Root
-	local git_root = vim.fs.find(".git", { path = startpath, upward = true, type = "directory" })[1]
-	if git_root then
-		return dirname(git_root)
+local function lookup(dir, cb)
+	if cache[dir] ~= nil then
+		return cb(cache[dir] or nil)
 	end
-	-- Sonst Ordner der Config
-	if cfg_path then
-		return dirname(cfg_path)
-	end
-	-- Fallback: Ordner der Datei
-	return dirname(startpath)
+	resolve(dir, function(opts)
+		cache[dir] = opts or false
+		cb(opts)
+	end)
 end
 
-local function apply_indent(buf, opts)
-	local tw = 4 -- Default auf 4
-	local useTabs = false
-
-	if opts then
-		tw = tonumber(opts.tabWidth) or tw
-		if opts.useTabs ~= nil then
-			useTabs = opts.useTabs
-		end
+-- without a config the previous defaults stay: width 4, spaces
+local function apply(buf, opts)
+	if not vim.api.nvim_buf_is_valid(buf) then
+		return
 	end
-
-	-- Lokal für diesen Buffer setzen
-	vim.bo[buf].expandtab = not useTabs
-	vim.bo[buf].tabstop = tw
-	vim.bo[buf].shiftwidth = tw
-	vim.bo[buf].softtabstop = tw
+	local width = opts and tonumber(opts.tabWidth) or 4
+	local use_tabs = opts ~= nil and opts.useTabs == true
+	vim.bo[buf].expandtab = not use_tabs
+	vim.bo[buf].tabstop = width
+	vim.bo[buf].shiftwidth = width
+	vim.bo[buf].softtabstop = width
 end
 
-local function compute_opts_for_buf(buf)
-	local name = vim.api.nvim_buf_get_name(buf)
-	if name == "" then
-		return nil
-	end
-	local startpath = dirname(name)
-	if not startpath then
-		return nil
-	end
-
-	-- Falls Root bereits gecached ist, nutze Cache
-	-- (Root zuerst ermitteln, dann Cache prüfen)
-	local cfg_path = find_prettier_config(startpath)
-	if not cfg_path then
-		return nil
-	end
-
-	local root = find_project_root(startpath, cfg_path)
-	if cache[root] ~= nil then
-		return cache[root]
-	end
-
-	local cfg = load_prettier_from_path(cfg_path)
-
-	-- Ergebnis cachen (auch nil, damit wir nicht ständig erneut parsen)
-	cache[root] = cfg or false
-	return cache[root] or nil
-end
-
--- Autocmd: beim Buffer-Betreten anwenden
 local group = vim.api.nvim_create_augroup("PrettierIndentSync", { clear = true })
+
 vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
 	group = group,
-	callback = function(args)
-		local opts = compute_opts_for_buf(args.buf)
-		apply_indent(args.buf, opts)
+	callback = function(ev)
+		local name = vim.api.nvim_buf_get_name(ev.buf)
+		if name == "" then
+			return
+		end
+		lookup(vim.fs.dirname(name), function(opts)
+			vim.schedule(function()
+				apply(ev.buf, opts)
+			end)
+		end)
 	end,
 })
 
--- Optional: einmal beim Start auf aktuellem Buffer und global setzen
+-- a config in the cwd also sets the globals, so new buffers pick it up
 vim.api.nvim_create_autocmd("VimEnter", {
 	group = group,
 	callback = function()
 		local buf = vim.api.nvim_get_current_buf()
-		local opts = compute_opts_for_buf(buf)
-		
-		-- Wenn eine Prettier-Config im CWD gefunden wurde, global setzen
-		if opts then
-			local tw = tonumber(opts.tabWidth) or 4
-			local useTabs = opts.useTabs
-			if useTabs ~= nil then
-				vim.o.expandtab = not useTabs
-			end
-			if tw then
-				vim.o.tabstop = tw
-				vim.o.shiftwidth = tw
-				vim.o.softtabstop = tw
-			end
-		end
-		
-		apply_indent(buf, opts)
+		lookup(vim.fn.getcwd(), function(opts)
+			vim.schedule(function()
+				if opts then
+					local width = tonumber(opts.tabWidth) or 4
+					if opts.useTabs ~= nil then
+						vim.o.expandtab = not opts.useTabs
+					end
+					vim.o.tabstop = width
+					vim.o.shiftwidth = width
+					vim.o.softtabstop = width
+				end
+				apply(buf, opts)
+			end)
+		end)
 	end,
 })
+
+return M
