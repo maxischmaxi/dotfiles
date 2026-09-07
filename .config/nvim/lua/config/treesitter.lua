@@ -102,17 +102,3 @@ end, { desc = "Swap parameter with next" })
 vim.keymap.set("n", "<leader>ap", function()
 	ts_swap.swap_previous("@parameter.inner")
 end, { desc = "Swap parameter with previous" })
-
-require("treesitter-context").setup({
-	max_lines = 4,
-	multiline_threshold = 1,
-	trim_scope = "outer",
-	mode = "cursor",
-})
-vim.keymap.set("n", "<leader>tc", function()
-	require("treesitter-context").toggle()
-end, { desc = "[T]oggle treesitter [C]ontext" })
--- jump to the context line that scrolled off the top
-vim.keymap.set("n", "<leader>tu", function()
-	require("treesitter-context").go_to_context(vim.v.count1)
-end, { desc = "Jump [U]p to context" })

@@ -372,18 +372,26 @@ hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("swaync-client -t"))
 -- ALT+TAB, replacing hyprshell. Windows are ordered most-recently-used, so the
 -- window you are not looking at is preselected: tap ALT+TAB and let go to
 -- toggle between two windows. Holding ALT and tapping TAB walks further down,
--- SHIFT reverses. The focus only moves once ALT is released.
---
--- Two implementations, and the binds pick per keystroke:
---   1. the hypr-altswitch plugin, which draws real window thumbnails
---   2. this Lua one, which draws the list as a Hyprland notification
--- If the plugin is missing (not built, or rejected after a Hyprland update
--- changed the ABI) or has disabled itself, the Lua one takes over silently —
--- ALT+TAB always does something.
+-- SHIFT reverses. The focus only moves once ALT is released. The list is drawn
+-- as a Hyprland notification.
 local switcher = { list = nil, index = 1, notif = nil }
+
+-- The ALT release bind is not guaranteed to fire, and without it the selection
+-- would never be applied. This timer commits once ALT is up. It calibrates
+-- itself: at the moment ALT+TAB fires, ALT is held by definition — so if
+-- is_key_down disagrees right there, key state is unusable in this session and
+-- the watchdog commits on inactivity instead of on release.
+local watchdog = { timer = nil, idle = 0, keyStateUsable = false }
 
 local function altHeld()
 	return hl.is_key_down("Alt_L") or hl.is_key_down("Alt_R")
+end
+
+local function watchdogStop()
+	watchdog.idle = 0
+	if watchdog.timer then
+		watchdog.timer:set_enabled(false)
+	end
 end
 
 -- Byte-safe clip: never cut a UTF-8 sequence in half.
@@ -431,8 +439,9 @@ local function drawSwitcher()
 end
 
 -- Apply the selection and tear the overlay down. Idempotent: the release bind
--- and the watchdog below may both land on it.
+-- and the watchdog may both land on it.
 local function commitSwitcher()
+	watchdogStop()
 	local win = switcher.list and switcher.list[switcher.index]
 	if switcher.notif then
 		pcall(function()
@@ -447,6 +456,32 @@ local function commitSwitcher()
 			hl.dispatch(hl.dsp.focus({ window = win }))
 		end)
 	end
+end
+
+local function watchdogStart()
+	watchdog.idle = 0
+	watchdog.keyStateUsable = altHeld()
+
+	if not watchdog.timer then
+		watchdog.timer = hl.timer(function()
+			if not switcher.list then
+				watchdogStop()
+				return
+			end
+			if watchdog.keyStateUsable then
+				if not altHeld() then
+					commitSwitcher()
+				end
+				return
+			end
+			-- No usable key state: commit ~1.5s after the last keypress.
+			watchdog.idle = watchdog.idle + 1
+			if watchdog.idle > 25 then
+				commitSwitcher()
+			end
+		end, { timeout = 60, type = "repeat" })
+	end
+	watchdog.timer:set_enabled(true)
 end
 
 local function altTab(step)
@@ -470,137 +505,20 @@ local function altTab(step)
 		end
 		switcher.index = (switcher.index + step - 1) % #switcher.list + 1
 		drawSwitcher()
-	end
-end
-
--- Path to the built plugin, or nil to stay on the Lua switcher.
--- Build it with: cd /stuff/programming/hypr-altswitch && make
-local switcherPluginPath = "/home/max/.local/share/hyprland/plugins/hypr-altswitch.so"
-
--- Returns the plugin namespace only if it is loaded AND still reports itself
--- healthy. hl.plugin.load() does not report failures back, so asking for the
--- namespace afterwards is the only reliable check.
-local function switcherPlugin()
-	local ns = hl.plugin and hl.plugin.altswitch
-	if type(ns) ~= "table" or type(ns.healthy) ~= "function" then
-		return nil
-	end
-	local ok, healthy = pcall(ns.healthy)
-	if ok and healthy then
-		return ns
-	end
-	return nil
-end
-
-if switcherPluginPath then
-	pcall(function()
-		hl.plugin.load(switcherPluginPath)
-	end)
-	if not switcherPlugin() then
-		hl.notification.create({
-			text = "alt-tab: plugin not loaded, using the built-in list.\nrebuild it after a Hyprland update.",
-			timeout = 6000,
-			color = "rgb(9a9aa2)",
-			font_size = 11,
-		})
-	end
-end
-
--- Watchdog, shared by both implementations. The ALT release bind is not
--- guaranteed to fire, and an overlay nobody closes just sits there: the Lua list
--- hid that behind its own 5s notification timeout, the plugin overlay has none.
---
--- It calibrates itself. At the moment ALT+TAB fires, ALT is held by definition —
--- so if is_key_down disagrees right there, key state is unusable in this session
--- and the watchdog closes on inactivity instead of on release.
-local watchdog = { timer = nil, idle = 0, keyStateUsable = false }
-
--- Declared up front: watchdog and commit call each other.
-local switchCommit, watchdogStart, watchdogStop
-
-local function switcherIsOpen()
-	if switcher.list then
-		return true
-	end
-	local ns = switcherPlugin()
-	if ns then
-		local ok, active = pcall(ns.active)
-		return ok and active == true
-	end
-	return false
-end
-
-watchdogStop = function()
-	watchdog.idle = 0
-	if watchdog.timer then
-		watchdog.timer:set_enabled(false)
-	end
-end
-
-watchdogStart = function()
-	watchdog.idle = 0
-	watchdog.keyStateUsable = altHeld()
-
-	if not watchdog.timer then
-		watchdog.timer = hl.timer(function()
-			if not switcherIsOpen() then
-				watchdogStop()
-				return
-			end
-			if watchdog.keyStateUsable then
-				if not altHeld() then
-					switchCommit()
-				end
-				return
-			end
-			-- No usable key state: close ~1.5s after the last keypress.
-			watchdog.idle = watchdog.idle + 1
-			if watchdog.idle > 25 then
-				switchCommit()
-			end
-		end, { timeout = 60, type = "repeat" })
-	end
-	watchdog.timer:set_enabled(true)
-end
-
--- Every step tries the plugin first and falls through to Lua on any failure,
--- so a plugin that dies mid-cycle costs one keystroke, not the feature.
-local function switchStep(step)
-	local luaStep = altTab(step)
-	return function()
-		local ns = switcherPlugin()
-		if not (ns and pcall(step > 0 and ns.next or ns.prev)) then
-			luaStep()
-		end
 		watchdogStart()
 	end
 end
 
-switchCommit = function()
-	local ns = switcherPlugin()
-	if ns then
-		pcall(ns.commit)
-	end
-	-- Also close the Lua one: a no-op when idle, and it is what cleans up if the
-	-- plugin fell over while its overlay was on screen.
-	commitSwitcher()
-	watchdogStop()
-end
-
-hl.bind("ALT + Tab", switchStep(1))
-hl.bind("ALT + SHIFT + Tab", switchStep(-1))
+hl.bind("ALT + Tab", altTab(1))
+hl.bind("ALT + SHIFT + Tab", altTab(-1))
 -- non_consuming: ALT on its own must still reach the app (Chrome's menu bar and
 -- friends react to a bare ALT press/release).
 -- No modifier on these: by the time ALT comes up, the ALT modifier is already
 -- gone, so "ALT + Alt_L" never matches — measured, it fired exactly zero times.
--- Without a modifier they fire on every ALT release; switchCommit is a no-op
+-- Without a modifier they fire on every ALT release; commitSwitcher is a no-op
 -- when no switcher is open, and non_consuming keeps a bare ALT reaching the app.
-hl.bind("Alt_L", function()
-	switchCommit()
-end, { release = true, non_consuming = true })
-hl.bind("Alt_R", function()
-	switchCommit()
-end, { release = true, non_consuming = true })
+hl.bind("Alt_L", commitSwitcher, { release = true, non_consuming = true })
+hl.bind("Alt_R", commitSwitcher, { release = true, non_consuming = true })
 
 -- Workspace vor/zurück inkl. leerer (vormals `exec, hyprctl dispatch workspace r±1`)
 hl.bind(mainMod .. " + N", hl.dsp.focus({ workspace = "r+1" }))

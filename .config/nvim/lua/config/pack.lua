@@ -34,7 +34,6 @@ vim.pack.add({
 	"https://github.com/nvim-telescope/telescope-ui-select.nvim",
 	"https://github.com/nvim-treesitter/nvim-treesitter",
 	"https://github.com/nvim-treesitter/nvim-treesitter-textobjects",
-	"https://github.com/nvim-treesitter/nvim-treesitter-context",
 	"https://github.com/windwp/nvim-ts-autotag",
 	"https://github.com/kylechui/nvim-surround",
 	"https://github.com/rhysd/conflict-marker.vim",

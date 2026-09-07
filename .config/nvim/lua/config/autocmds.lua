@@ -67,7 +67,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
 		end
 
 		if client:supports_method(vim.lsp.protocol.Methods.textDocument_codeAction, ev.buf) then
-			map("<leader>ca", vim.lsp.buf.code_action, "[C]ode [A]ctions")
+			map("<leader>ca", function()
+				require("custom.fix_all").code_action()
+			end, "[C]ode [A]ctions")
 		end
 	end,
 })
@@ -117,3 +119,6 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 		end
 	end,
 })
+
+-- temporary: logs unexpected modified buffers, see custom/buf_watch.lua
+require("custom.buf_watch")
