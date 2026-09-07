@@ -1,0 +1,15 @@
+{
+  "name": "pi-headroom",
+  "version": "0.1.0",
+  "description": "Pi extension: starts a shared Headroom optimization proxy on demand and routes configured providers through it, with automatic shutdown when the last Pi instance exits.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

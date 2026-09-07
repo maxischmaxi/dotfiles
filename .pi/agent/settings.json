@@ -13,8 +13,7 @@
     "npm:pi-goal-x",
     "npm:pi-intercom",
     "npm:pi-prompt-template-model",
-    "npm:@ollama/pi-web-search",
-    "../../Projects/pi-headroom"
+    "npm:@ollama/pi-web-search"
   ],
   "quietStartup": true,
   "terminal": {
