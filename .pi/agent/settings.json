@@ -1,0 +1,25 @@
+{
+  "defaultModel": "glm-5.3:cloud",
+  "defaultProvider": "ollama",
+  "defaultThinkingLevel": "high",
+  "doubleEscapeAction": "tree",
+  "hideThinkingBlock": true,
+  "lastChangelogVersion": "0.85.1",
+  "packages": [
+    "npm:pi-subagents",
+    "npm:pi-markdown-preview",
+    "npm:@ineersa/my-pi-themes",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:pi-goal-x",
+    "npm:pi-intercom",
+    "npm:pi-prompt-template-model",
+    "npm:@ollama/pi-web-search",
+    "../../Projects/pi-headroom"
+  ],
+  "quietStartup": true,
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "theme": "tokyo-night",
+  "transport": "auto"
+}

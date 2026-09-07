@@ -11,3 +11,16 @@ for _f in "$HOME/dotfiles/shell"/[0-9][0-9]-*.zsh(N); do
   source "$_f"
 done
 unset _f
+
+# >>> headroom persistent env >>>
+export HEADROOM_PORT="8787"
+export HEADROOM_HOST="127.0.0.1"
+export HEADROOM_MODE="cache"
+export HEADROOM_BACKEND="anthropic"
+export HEADROOM_TELEMETRY="off"
+export ANTHROPIC_BASE_URL="http://127.0.0.1:8787"
+export ENABLE_TOOL_SEARCH="true"
+export COPILOT_PROVIDER_TYPE="anthropic"
+export COPILOT_PROVIDER_BASE_URL="http://127.0.0.1:8787"
+export OPENAI_BASE_URL="http://127.0.0.1:8787/v1"
+# <<< headroom persistent env <<<

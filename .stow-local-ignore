@@ -18,3 +18,4 @@ shell
 .stowrc
 ac
 .luarc.json
+.pi/agent/models.json
