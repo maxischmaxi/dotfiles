@@ -6,7 +6,7 @@ alias godot="$HOME/.local/bin/godot_v4_5_1"
 alias meet="meet-participants | wl-copy"
 
 if [[ -n "$GHOSTTY_RESOURCES_DIR" ]]; then
-  alias ssh='ghostty +ssh --'
+    alias ssh='ghostty +ssh --'
 fi
 
 alias oldvim="vim"
@@ -16,4 +16,4 @@ alias v="nvim"
 alias icat="chafa"
 alias l="ls -al"
 
-alias claude="claude --dangerously-skip-permissions --effort=xhigh"
+alias claude="env -u ANTHROPIC_BASE_URL claude --dangerously-skip-permissions --effort=xhigh"

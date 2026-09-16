@@ -66,11 +66,19 @@ local tiling = layoutMode == "default"
 -- desc: statt Port-Name — die DP-/HDMI-Namen wechseln je nach Boot/Treiber.
 -- desc bindet an die EDID (Modell + Serial) und bleibt stabil.
 ------------------------------------------------------------------
--- ASUS XG32UCDS 32" 4K@165 – einziger Monitor
+-- Samsung Odyssey G81SF — main display, sits at the origin.
+-- 240Hz at 4K only fits over DP with DSC; verified live before it was set here.
+hl.monitor({
+	output = "desc:Samsung Electric Company Odyssey G81SF HNBY900231",
+	mode = "3840x2160@240",
+	position = "0x0",
+	scale = 1,
+})
+-- ASUS XG32UCDS 32" 4K@165 — second display, right of the Samsung.
 hl.monitor({
 	output = "desc:ASUSTek COMPUTER INC XG32UCDS T8LMQS046296",
 	mode = "3840x2160@165",
-	position = "0x0",
+	position = "3840x0",
 	scale = 1,
 })
 -- Fallback für jeden weiteren/unbekannten Monitor
@@ -95,9 +103,13 @@ hl.env("HYPRCURSOR_SIZE", "24")
 ------------------------------------------------------------------
 -- Workspaces an Monitore binden
 ------------------------------------------------------------------
--- Single-Display: Workspace 1 ist Default, weitere Workspaces brauchen keine
--- Monitor-Bindung mehr.
-hl.workspace_rule({ workspace = "1", monitor = "desc:ASUSTek COMPUTER INC XG32UCDS T8LMQS046296", default = true })
+-- Workspace 1 opens on the main display. The rest stay unbound, so a new
+-- workspace lands on whichever monitor has focus.
+hl.workspace_rule({
+	workspace = "1",
+	monitor = "desc:Samsung Electric Company Odyssey G81SF HNBY900231",
+	default = true,
+})
 
 ------------------------------------------------------------------
 -- exec (bei jedem Config-Load) — GTK-Theme-Settings
@@ -588,27 +600,38 @@ hl.bind(mainMod .. " + up", hl.dsp.window.resize({ x = 0, y = -40, relative = tr
 hl.bind(mainMod .. " + down", hl.dsp.window.resize({ x = 0, y = 40, relative = true }))
 
 -- Horizontal focus, step = 1 (right) or -1 (left). Hyprland's own direction
--- focus wraps around at the edge, which is exactly what we don't want: at the
--- outer edge this carries on into the next workspace in that direction that
--- actually holds windows — empty ones in between are skipped, and if there is
--- nothing left over there, nothing happens at all.
+-- focus wraps around at the edge, which is exactly what we don't want. This
+-- walks outward in three stages: windows currently on screen (across monitors
+-- as well, since window coordinates are global), then an empty monitor in that
+-- direction, then the nearest off-screen workspace that still holds windows.
 local function focusHorizontal(step)
 	return function()
 		local ws = hl.get_active_workspace()
 		if not ws then
 			return
 		end
-		-- nearest window in that direction, measured center to center;
-		-- vertical distance only breaks ties (0.5 weight).
 		local active = hl.get_active_window()
+
+		-- Stage 1: nearest window in that direction, measured center to center;
+		-- vertical distance only breaks ties (0.5 weight). Every visible workspace
+		-- counts, not just the active one, so the monitor next door is simply
+		-- "further along x" and needs no case of its own.
 		if active then
 			local acx = active.at.x + active.size.x / 2
 			local acy = active.at.y + active.size.y / 2
 			local best, bestScore
-			for _, w in ipairs(hl.get_workspace_windows(ws)) do
+			for _, w in ipairs(hl.get_windows()) do
 				-- skip the inactive tabs of a group: they sit on top of each other
 				-- and focusing one you cannot see is not what the keypress meant.
-				if w.address ~= active.address and w.mapped and not w.hidden then
+				local wws = w.workspace
+				if
+					w.address ~= active.address
+					and w.mapped
+					and not w.hidden
+					and wws
+					and wws.visible
+					and not wws.special
+				then
 					local dx = (w.at.x + w.size.x / 2 - acx) * step
 					if dx > 1 then
 						local score = dx + math.abs(w.at.y + w.size.y / 2 - acy) * 0.5
@@ -623,18 +646,41 @@ local function focusHorizontal(step)
 				return
 			end
 		end
-		-- Edge reached: nearest workspace in that direction that holds windows.
-		-- Distance, not id + step: empty workspaces get cleaned up by Hyprland,
-		-- so 1 and 3 are neighbours once 2 has been emptied.
+
 		if ws.special or ws.id < 1 then
 			return
 		end
-		local mon = ws.monitor and ws.monitor.name
+
+		-- Stage 2: nothing left on screen, but there may be an empty monitor over
+		-- there. Without this an blank second screen is unreachable by keyboard,
+		-- because stage 1 only ever finds windows.
+		local here = ws.monitor
+		if here then
+			local mon, monDist
+			for _, m in ipairs(hl.get_monitors()) do
+				local dist = (m.x - here.x) * step
+				if dist > 0 and (not monDist or dist < monDist) then
+					mon, monDist = m, dist
+				end
+			end
+			if mon then
+				local aw = mon.active_workspace
+				if not aw or aw.windows == 0 then
+					hl.dispatch(hl.dsp.focus({ monitor = mon.name }))
+					return
+				end
+			end
+		end
+
+		-- Stage 3: nearest off-screen workspace in that direction that holds
+		-- windows, on any monitor — this is the one that crosses workspaces.
+		-- Distance, not id + step: empty workspaces get cleaned up by Hyprland,
+		-- so 1 and 3 are neighbours once 2 has been emptied. Visible ones are
+		-- excluded, stage 1 already had its shot at them.
 		local target, targetDist
 		for _, cand in ipairs(hl.get_workspaces()) do
 			local dist = (cand.id - ws.id) * step
-			local sameMon = not mon or not cand.monitor or cand.monitor.name == mon
-			if dist > 0 and cand.windows > 0 and not cand.special and sameMon then
+			if dist > 0 and cand.windows > 0 and not cand.special and not cand.visible then
 				if not targetDist or dist < targetDist then
 					target, targetDist = cand, dist
 				end
