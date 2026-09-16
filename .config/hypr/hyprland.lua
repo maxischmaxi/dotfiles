@@ -915,6 +915,35 @@ hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl -p playerctld play-pause"), 
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl -p playerctld previous"), { locked = true })
 
 ------------------------------------------------------------------
+-- Display sperren + Monitore aus (OLED-Schutz): CTRL+ALT+L (klassisches Lock-Kürzel,
+-- bewusst ohne SUPER: liegt damit außer Reichweite jeder versehentlich getroffenen
+-- SUPER-Bind-Kombi wie SUPER+C/Q).
+------------------------------------------------------------------
+-- Erst hyprlock (Session bleibt entsperrt erreichbar), dann DPMS off: die
+-- Panels verlieren das Signal und gehen ganz aus — kein Standby-Bild, kein
+-- Burn-in. Aufwachen per Tastendruck/Maus, hyprlock bleibt aktiv.
+-- Wichtige Details:
+--  * Das Wiki warnt davor, dpms direkt im Keybind zu dispatchen (undefined
+--    behaviour solange die Taste noch unten ist) — deshalb der oneshot-Timer
+--    mit 500ms.
+--  * Pro Monitor: Der dpms-Dispatcher schaltet pro Head, und Messungen auf
+--    0.55.x zeigen, dass er das Zustandwort ignoriert und schlicht TOGGLED.
+--    Also dpms_status lesen und nur anfassen, wenn der Monitor wirklich an
+--    ist — sonst würde ein schon dunkles Panel wieder angehen.
+--  * hyprlock wird ohne &-Detachment gestartet: hl.exec_cmd spawnt das als
+--    eigenen Prozess, der Keybind kehrt sofort zurück.
+hl.bind("CTRL + ALT + L", function()
+	hl.exec_cmd("hyprlock")
+	hl.timer(function()
+		for _, m in ipairs(hl.get_monitors()) do
+			if m.dpms_status then
+				hl.dispatch(hl.dsp.dpms({ action = "off", monitor = m.name }))
+			end
+		end
+	end, { timeout = 500, type = "oneshot" })
+end)
+
+------------------------------------------------------------------
 -- Window Rules (Reihenfolge = top-to-bottom, wie in hyprland.conf)
 ------------------------------------------------------------------
 -- Catch-all first: Hyprland has no "floating" layout, this rule *is* the mode.
