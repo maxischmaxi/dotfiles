@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#
+# zellij-sessionizer — fuzzy über die Projekte unter $PROJECTS_DIR, analog zum
+# tmux-sessionizer: eine eigene Session pro Projekt (Session-Name = Ordnername,
+# Punkte -> Unterstriche).
+#
+# `zellij action switch-session` (ab 0.45) schaltet den laufenden Client live
+# um und legt die Zielsession bei Bedarf im Hintergrund an (create-if-missing,
+# das Pendant zu tmux `new-session -A` + `switch-client`). Die bisherige
+# Session läuft dabei unberührt detached weiter.
+#
+# Gebunden an prefix f, siehe ~/.config/zellij/config.kdl.
+# Läuft in einem schwebenden Zellij-Pane (Run ... { floating true; }), fzf
+# bekommt dadurch sein TTY. Skript beendet sich -> Pane schließt.
+
+set -uo pipefail
+
+# $PROJECTS_DIR kommt normalerweise aus der zshrc; beim Aufruf aus einem
+# Zellij-Run-Pane kann die Env vom Session-Start stammen und die Variable
+# fehlen — deshalb hier dieselbe Quelle sourcen statt den Pfad zu duplizieren.
+source "$HOME/dotfiles/projects-dir.sh"
+
+selected=$(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' 2>/dev/null | sort | fzf)
+
+if [[ -z $selected ]]; then
+    exit 0
+fi
+
+name=$(basename "$selected" | tr . _)
+
+# Existiert die Session bereits -> dahin schalten; sonst wird sie mit dem
+# Projektpfad als cwd angelegt. Das schließt auch den Fall ab, dass derselbe
+# Projektname schon als Session lebt (z.B. resurrectet nach Reboot).
+zellij action switch-session "$name" --cwd "$selected"
