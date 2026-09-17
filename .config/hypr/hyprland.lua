@@ -599,11 +599,30 @@ hl.bind(mainMod .. " + right", hl.dsp.window.resize({ x = 40, y = 0, relative = 
 hl.bind(mainMod .. " + up", hl.dsp.window.resize({ x = 0, y = -40, relative = true }))
 hl.bind(mainMod .. " + down", hl.dsp.window.resize({ x = 0, y = 40, relative = true }))
 
+-- The window of `ws` that was focused last: the mapped member with the lowest
+-- focus_history_id (0 = currently focused, 1 = the one before it, ...).
+-- Hyprland's own workspace activation lands on exactly this window, so using
+-- it as the explicit focus target makes the initial focus and the final focus
+-- identical — no second, "unpreventable" focus move afterwards.
+local function lastFocusedWindow(ws)
+	local last
+	for _, w in ipairs(hl.get_workspace_windows(ws)) do
+		if w.mapped and not w.hidden then
+			if not last or w.focus_history_id < last.focus_history_id then
+				last = w
+			end
+		end
+	end
+	return last
+end
+
 -- Horizontal focus, step = 1 (right) or -1 (left). Hyprland's own direction
 -- focus wraps around at the edge, which is exactly what we don't want. This
 -- walks outward in three stages: windows currently on screen (across monitors
 -- as well, since window coordinates are global), then an empty monitor in that
 -- direction, then the nearest off-screen workspace that still holds windows.
+-- A stage that crosses into another WORKSPACE lands on that workspace's
+-- last-focused window — never on a geometrically nearest one.
 local function focusHorizontal(step)
 	return function()
 		local ws = hl.get_active_workspace()
@@ -642,6 +661,20 @@ local function focusHorizontal(step)
 				end
 			end
 			if best then
+				-- Crossing into another workspace (i.e. the other monitor's active
+				-- one) is a workspace switch: land on its last-focused window
+				-- instead of the geometrically nearest one. Focusing the nearest
+				-- window made Hyprland first activate the workspace — putting focus
+				-- on its last window — and then move focus to the requested
+				-- window, a visible two-step jump. Landing on the last-focused
+				-- window directly leaves focus where Hyprland already put it.
+				local best_ws = best.workspace
+				if best_ws and best_ws.id ~= ws.id then
+					local last = lastFocusedWindow(best_ws)
+					if last then
+						best = last
+					end
+				end
 				hl.dispatch(hl.dsp.focus({ window = best }))
 				return
 			end
@@ -668,6 +701,14 @@ local function focusHorizontal(step)
 				if not aw or aw.windows == 0 then
 					hl.dispatch(hl.dsp.focus({ monitor = mon.name }))
 					return
+				elseif not active then
+					-- No active window: stage 1 never ran, so the windows over there
+					-- are otherwise unreachable by this keypress.
+					local target = lastFocusedWindow(aw)
+					if target then
+						hl.dispatch(hl.dsp.focus({ window = target }))
+						return
+					end
 				end
 			end
 		end
@@ -689,19 +730,16 @@ local function focusHorizontal(step)
 		if not target then
 			return
 		end
-		-- land on the window closest to the edge we came from
-		local edge, edgeScore
-		for _, w in ipairs(hl.get_workspace_windows(target)) do
-			if w.mapped and not w.hidden then
-				local score = (w.at.x + w.size.x / 2) * step
-				if not edgeScore or score < edgeScore then
-					edge, edgeScore = w, score
-				end
-			end
-		end
+		-- A workspace switch: land on its last-focused window, same rule as the
+		-- cross-monitor case in stage 1. Hyprland's changeWorkspace already
+		-- focuses exactly that window; the explicit dispatch pins it in case the
+		-- workspace has no last-focused window tracked (fresh windows) — the old
+		-- behavior of landing on the window closest to the edge we came from is
+		-- what caused the second focus jump here.
 		hl.dispatch(hl.dsp.focus({ workspace = target }))
-		if edge then
-			hl.dispatch(hl.dsp.focus({ window = edge }))
+		local last = lastFocusedWindow(target)
+		if last then
+			hl.dispatch(hl.dsp.focus({ window = last }))
 		end
 	end
 end
