@@ -282,6 +282,12 @@ hl.config({
 		-- Fallback behind the wallpaper: what shows before hyprpaper is up, or if
 		-- it dies. Needs disable_hyprland_logo = true (set above).
 		background_color = "rgb(000000)",
+		-- Dunkle Displays bei jedem Tastendruck und jeder Mausbewegung wieder
+		-- einschalten. Ohne das gibt es nach einem DPMS-off KEINEN Weg, die
+		-- Panels von Hand aufzuwecken (nur Unlock von außen/SSH) — die Ursache
+		-- für den Blackscreen nach dem Lock. Siehe Lock-Toggle weiter unten.
+		key_press_enables_dpms = true,
+		mouse_move_enables_dpms = true,
 		-- VRR nur im Fullscreen. Nutzt Adaptive Sync des XG32UCDS bei Games/Video,
 		-- vermeidet aber das Helligkeitsflackern, das manche Panels im Desktop-
 		-- Betrieb bei stark schwankender Framerate zeigen.
@@ -953,33 +959,68 @@ hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl -p playerctld play-pause"), 
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl -p playerctld previous"), { locked = true })
 
 ------------------------------------------------------------------
--- Display sperren + Monitore aus (OLED-Schutz): CTRL+ALT+L (klassisches Lock-Kürzel,
--- bewusst ohne SUPER: liegt damit außer Reichweite jeder versehentlich getroffenen
--- SUPER-Bind-Kombi wie SUPER+C/Q).
+-- Lock-Toggle: CTRL+SHIFT+L — sperrt die Session (hyprlock) und schaltet
+-- die Monitore aus (OLED-Schutz). Läuft hyprlock bereits, weckt derselbe
+-- Shortcut die Displays wieder auf — hyprlock bleibt aktiv, es geht nur
+-- das Bild an (Passworteingabe wie gewohnt; Aufwecken != Entsperren, das
+-- geht aus Sicherheitsgründen nur mit Passwort). CTRL+ALT+L bleibt als
+-- Alias auf dieselbe Funktion gebunden. Bewusst ohne SUPER: liegt damit
+-- außer Reichweite jeder versehentlich getroffenen SUPER-Kombi wie SUPER+C/Q.
 ------------------------------------------------------------------
 -- Erst hyprlock (Session bleibt entsperrt erreichbar), dann DPMS off: die
 -- Panels verlieren das Signal und gehen ganz aus — kein Standby-Bild, kein
--- Burn-in. Aufwachen per Tastendruck/Maus, hyprlock bleibt aktiv.
+-- Burn-in.
 -- Wichtige Details:
+--  * locked = true: Binds feuern normalerweise NICHT, solange ein
+--    ext-session-lock aktiv ist. Ohne das käme der Shortcut auf dem
+--    Lockscreen nie an und der Toggle wäre nur eine Einbahnstraße.
 --  * Das Wiki warnt davor, dpms direkt im Keybind zu dispatchen (undefined
 --    behaviour solange die Taste noch unten ist) — deshalb der oneshot-Timer
 --    mit 500ms.
---  * Pro Monitor: Der dpms-Dispatcher schaltet pro Head, und Messungen auf
---    0.55.x zeigen, dass er das Zustandwort ignoriert und schlicht TOGGLED.
---    Also dpms_status lesen und nur anfassen, wenn der Monitor wirklich an
---    ist — sonst würde ein schon dunkles Panel wieder angehen.
+--  * Pro Monitor: dpms_status lesen und nur anfassen, was den Zielzustand
+--    noch nicht hat. Auf 0.55.x togglete der Dispatcher das Action-Wort weg
+--    (off/off = wieder an); Messung auf 0.56.2: setzt sauber. Der Check
+--    kostet nichts und hält die Logik robust gegen beide Semantiken.
+--  * hyprlock läuft als ext-session-lock, also KEINE Layer-Surface: es
+--    taucht nicht in hl.get_layers() auf. Zustand deshalb per pgrep
+--    abfragen — io.popen ist in der Lua-Sandbox verfügbar.
 --  * hyprlock wird ohne &-Detachment gestartet: hl.exec_cmd spawnt das als
 --    eigenen Prozess, der Keybind kehrt sofort zurück.
-hl.bind("CTRL + ALT + L", function()
+local function hyprlockRunning()
+	local proc = io.popen("pgrep -x hyprlock")
+	if not proc then
+		return false
+	end
+	local out = proc:read("*a")
+	proc:close()
+	return out ~= ""
+end
+
+-- DPMS pro Head auf action ("on"/"off") setzen; Monitore, die den Zielzustand
+-- schon haben, werden nicht angefasst.
+local function dpmsAll(action)
+	local target = (action == "on")
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.dpms_status ~= target then
+			hl.dispatch(hl.dsp.dpms({ action = action, monitor = m.name }))
+		end
+	end
+end
+
+local function lockToggle()
+	if hyprlockRunning() then
+		-- Bereits gesperrt: Displays aufwecken, hyprlock läuft weiter.
+		dpmsAll("on")
+		return
+	end
 	hl.exec_cmd("hyprlock")
 	hl.timer(function()
-		for _, m in ipairs(hl.get_monitors()) do
-			if m.dpms_status then
-				hl.dispatch(hl.dsp.dpms({ action = "off", monitor = m.name }))
-			end
-		end
+		dpmsAll("off")
 	end, { timeout = 500, type = "oneshot" })
-end)
+end
+
+hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
+hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 
 ------------------------------------------------------------------
 -- Window Rules (Reihenfolge = top-to-bottom, wie in hyprland.conf)
