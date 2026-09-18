@@ -12,8 +12,15 @@ blink_cmp.setup({
 		["<Up>"] = { "select_prev", "fallback" },
 		["<Down>"] = { "select_next", "fallback" },
 
-		-- show with a list of providers
-		["<C-space>"] = { "show", "fallback" },
+		-- toggle the completion menu: "show" can only open it, so hide it
+-- first when it is already open
+		["<C-space>"] = {
+			function(cmp)
+				if cmp.is_menu_visible() then return cmp.hide() end
+				return cmp.show()
+			end,
+			"fallback",
+		},
 		["<CR>"] = { "fallback" },
 		["<Tab>"] = { "accept", "fallback" },
 	},

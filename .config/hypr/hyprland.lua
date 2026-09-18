@@ -1020,6 +1020,49 @@ local function lockToggle()
 end
 
 hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
+
+------------------------------------------------------------------
+-- Monitor-Watchdog: Der Samsung (Odyssey G81SF) bleibt nach dem Wieder-
+-- Anschalten gelegentlich schwarz. Ursache im Treiber (nvidia-drm 615 +
+-- aquamarine): Beim Reconnect modesetet aquamarine das Panel zwar, aber der
+-- abschließende Commit scheitert an einem noch ausstehenden Page-Flip
+-- ("Cannot commit when a page-flip is awaiting" im hyprland.log) — das Panel
+-- bekommt nie ein Signal, Hyprland hält den Monitor trotzdem für aktiv
+-- (dpms_status=true). Ein DPMS-Zyklus hilft NICHT (der neue Commit rennt in
+-- denselben hängenden Flip), force_renderer_reload räumt den Flip ab und
+-- modesetet frisch — gemessen: danach kommt der Modeset ohne Commit-Fehler
+-- durch. Kostet ein kurzes Schwarzblitzen auf allen Displays.
+-- Erkennung: monitor.added, Auflösung über die description (EDID: Modell
+-- + Serial) statt des Port-Namens, da DP-1/DP-2 je nach Boot/Treiber
+-- tauschen. Das Event-Objekt liefert nur .name (keine description, am
+-- Headless-Output gemessen), deshalb wird der Samsung nachgeschlagen und erst
+-- dann — mit 1s Abstand, damit das initiale Modesetting abgeschlossen ist —
+-- der Reload ausgelöst.
+local SAMSUNG_DESC = "Samsung Electric Company Odyssey G81SF"
+
+-- Der Reload soll NUR anstoßen, wenn der Samsung selbst (re)connected wurde.
+-- Das Event-Objekt ist userdata und trägt nur .name (description fehlt, am
+-- Headless-Output gemessen); den Samsung-Namen deshalb über get_monitors()
+-- per description auflösen und vergleichen. pcall sichert den Feldzugriff ab,
+-- falls ein künftiges Hyprland das Objekt ändert.
+hl.on("monitor.added", function(m)
+	local ok, name = pcall(function()
+		return m.name
+	end)
+	if not ok or not name then
+		return
+	end
+	for _, mon in ipairs(hl.get_monitors()) do
+		if type(mon.description) == "string" and mon.description:find(SAMSUNG_DESC, 1, true) then
+			if mon.name == name then
+				hl.timer(function()
+					hl.dispatch(hl.dsp.force_renderer_reload())
+				end, { timeout = 1000, type = "oneshot" })
+			end
+			return
+		end
+	end
+end)
 hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 
 ------------------------------------------------------------------
