@@ -758,13 +758,9 @@ hl.bind(mainMod .. " + l", focusHorizontal(1))
 hl.bind(mainMod .. " + j", hl.dsp.focus({ direction = "down" }))
 hl.bind(mainMod .. " + k", hl.dsp.focus({ direction = "up" }))
 
--- Usable area of a window's monitor: full size minus reserved edges, scale
+-- Usable area of a monitor: full size minus reserved edges, scale
 -- corrected. Both snapping and scaling below work against it.
-local function usableArea(win)
-	local m = (win and win.monitor) or hl.get_monitor_at_cursor()
-	if not m then
-		return nil
-	end
+local function monitorArea(m)
 	local r = m.reserved or {}
 	local scale = m.scale or 1
 	return {
@@ -773,6 +769,11 @@ local function usableArea(win)
 		w = m.width / scale - (r.left or 0) - (r.right or 0),
 		h = m.height / scale - (r.top or 0) - (r.bottom or 0),
 	}
+end
+
+local function usableArea(win)
+	local m = (win and win.monitor) or hl.get_monitor_at_cursor()
+	return m and monitorArea(m)
 end
 
 -- Snapping: Hyprland has no notion of screen halves, so do the math here.
@@ -1111,8 +1112,8 @@ hl.window_rule({
 hl.window_rule({ match = { class = "^(dev\\.tensaku\\.Tensaku)$" }, float = true })
 hl.window_rule({ match = { class = "^(dev\\.tensaku\\.Tensaku)$" }, center = true })
 
-hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, float = true })
-hl.window_rule({ match = { class = "^(jetbrains-studio)$" }, no_anim = true })
+hl.window_rule({ match = { class = "^(jetbrains-studio|com.mojang.minecraft)$" }, float = true })
+hl.window_rule({ match = { class = "^(jetbrains-studio|com.mojang.minecraft)$" }, no_anim = true })
 
 hl.window_rule({ match = { title = "(MMORPG|MMORPG – Welt-Editor)" }, float = true })
 
@@ -1144,6 +1145,74 @@ hl.window_rule({ match = { class = "^(google-chrome)$", title = "^Google.*Meet" 
 
 hl.window_rule({ match = { title = "^meet.google.com hat ein Fenster freigegeben." }, rounding = 0 })
 hl.window_rule({ match = { title = "^meet.google.com hat ein Fenster freigegeben." }, border_size = 0 })
+
+------------------------------------------------------------------
+-- Remembered window geometry
+-- Floating windows of these classes reopen with the size and position they
+-- had when they were last closed. The position is stored relative to the
+-- usable area, so the window comes back on whichever monitor it opens on.
+------------------------------------------------------------------
+local rememberGeometry = { ["com.mojang.minecraft"] = true }
+local geometryFile = os.getenv("HOME") .. "/.local/state/hypr-window-geometry"
+
+local function readGeometry()
+	local saved = {}
+	local f = io.open(geometryFile, "r")
+	if not f then
+		return saved
+	end
+	for line in f:lines() do
+		local class, x, y, w, h = line:match("^(%S+) (%-?%d+) (%-?%d+) (%d+) (%d+)$")
+		if class then
+			saved[class] = { x = tonumber(x), y = tonumber(y), w = tonumber(w), h = tonumber(h) }
+		end
+	end
+	f:close()
+	return saved
+end
+
+hl.on("window.close", function(win)
+	if not rememberGeometry[win.class] or not win.floating or win.fullscreen ~= 0 then
+		return
+	end
+	-- by its center: a window moved across monitors can keep its old monitor
+	local m = hl.get_monitor_at(win.at.x + win.size.x / 2, win.at.y + win.size.y / 2) or win.monitor
+	if not m then
+		return
+	end
+	local a = monitorArea(m)
+	local saved = readGeometry()
+	saved[win.class] = { x = win.at.x - a.x, y = win.at.y - a.y, w = win.size.x, h = win.size.y }
+	-- temp file + rename, so a half-written file never gets read back
+	local f = io.open(geometryFile .. ".tmp", "w")
+	if not f then
+		return
+	end
+	for class, g in pairs(saved) do
+		f:write(string.format("%s %d %d %d %d\n", class, g.x, g.y, g.w, g.h))
+	end
+	f:close()
+	os.rename(geometryFile .. ".tmp", geometryFile)
+end)
+
+hl.on("window.open", function(win)
+	if not rememberGeometry[win.class] or not win.floating then
+		return
+	end
+	local g = readGeometry()[win.class]
+	local a = g and usableArea(win)
+	if not a then
+		return
+	end
+	-- clamp into the monitor it opens on, whatever monitor it was saved on;
+	-- the 320x200 floor keeps a broken entry from shrinking it to nothing
+	local w = math.floor(math.min(a.w, math.max(320, g.w)))
+	local h = math.floor(math.min(a.h, math.max(200, g.h)))
+	local x = math.floor(math.max(a.x, math.min(a.x + a.w - w, a.x + g.x)))
+	local y = math.floor(math.max(a.y, math.min(a.y + a.h - h, a.y + g.y)))
+	hl.dispatch(hl.dsp.window.resize({ x = w, y = h, window = win }))
+	hl.dispatch(hl.dsp.window.move({ x = x, y = y, window = win }))
+end)
 
 ------------------------------------------------------------------
 -- Layer Rules
