@@ -4,7 +4,7 @@
   "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
   "hideThinkingBlock": true,
-  "lastChangelogVersion": "0.85.1",
+  "lastChangelogVersion": "0.87.1",
   "packages": [
     "npm:pi-subagents",
     "npm:pi-markdown-preview",
