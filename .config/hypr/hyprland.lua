@@ -143,6 +143,11 @@ hl.on("hyprland.start", function()
 	-- gapplication service around, so the first ALT+SPACE is not a cold start.
 	hl.exec_cmd("~/.config/hypr/scripts/walker-restart.sh")
 	hl.exec_cmd("systemctl --user start hypridle.service")
+	-- Xwayland: Samsung Odyssey (DP-2) als RandR-Primary setzen, damit X11-
+	-- Spiele (raylib/GLFW zentrieren beim Start aufs Primary) auf dem linken
+	-- Arbeits-Monitor landen statt auf dem ASUS rechts. Retry-Loop im Skript,
+	-- da Xwayland zum Autostart-Zeitpunkt noch nicht bereit sein kann.
+	hl.exec_cmd("~/.config/hypr/scripts/set-xwayland-primary.sh")
 end)
 
 -- Raise on focus: Hyprland keeps the floating stack as it is when focus moves,
@@ -332,6 +337,12 @@ hl.config({
 	},
 })
 
+-- Logitech X2 Superstrike: overrides the global input.sensitivity
+hl.device({
+	name = "logitech-x2-superstrike-1",
+	sensitivity = -0.25,
+})
+
 ------------------------------------------------------------------
 -- Animations-Kurven & -Zuordnungen
 ------------------------------------------------------------------
@@ -382,6 +393,12 @@ hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("nwg-bar -i 64"))
 hl.bind(mainMod .. " + G", hl.dsp.group.toggle())
 hl.bind(mainMod .. " + TAB", hl.dsp.group.next())
 hl.bind(mainMod .. " + SHIFT + TAB", hl.dsp.group.prev())
+
+-- Aktives (Floating-)Fenster auf den sichtbaren Bereich des Monitors
+-- zentrieren. Rettungsanker, falls XWayland mal ein veraltetes Monitor-Layout
+-- meldet und ein Fenster außerhalb des Sichtbereichs landet (z.B. raylib-
+-- Spiele, die sich beim InitWindow selbst auf "Bildschirmmitte" schieben).
+hl.bind(mainMod .. " + SHIFT + G", hl.dsp.window.center())
 
 -- Info-Shortcuts (Uhr / Notifications)
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/show-time.sh"))
@@ -1116,6 +1133,14 @@ hl.window_rule({ match = { class = "^(jetbrains-studio|com.mojang.minecraft)$" }
 hl.window_rule({ match = { class = "^(jetbrains-studio|com.mojang.minecraft)$" }, no_anim = true })
 
 hl.window_rule({ match = { title = "(MMORPG|MMORPG – Welt-Editor)" }, float = true })
+
+-- Odin/raylib-Spiel (~/stuff/programming/minecraft): Sicherheitsnetz, falls
+-- das Fenster wider Erwarten off-screen landet. Der eigentliche Fix ist das
+-- Autostart-Skript set-xwayland-primary.sh: raylib zentriert beim InitWindow
+-- auf dem GLFW-"Primary"-Monitor, und ohne gesetzten RandR-Primary ist das
+-- der falsche. Raylibs nachträgliche Selbst-Positionierung überstimmt diese
+-- Rule — im Notfall hilft SUPER+SHIFT+G (hl.dsp.window.center()).
+hl.window_rule({ match = { class = "^(Max Minecraft)$" }, center = true })
 
 hl.window_rule({ match = { class = "^(Emulator)$", title = "^(Emulator)$" }, float = true })
 hl.window_rule({ match = { class = "^(Emulator)$", title = "^(Emulator)$" }, no_anim = true })
