@@ -1,0 +1,36 @@
+/* Follows Chrome's light/dark setting via system colors; font-family is left
+   unset so Chrome's configured standard font is used. */
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  background: Canvas;
+  color: CanvasText;
+}
+
+main {
+  text-align: center;
+  user-select: none;
+}
+
+.time {
+  font-size: clamp(3rem, 12vw, 9rem);
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.date {
+  margin-top: 0.75rem;
+  font-size: clamp(1rem, 2.5vw, 1.75rem);
+  opacity: 0.7;
+}

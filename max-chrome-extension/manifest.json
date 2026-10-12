@@ -1,11 +1,14 @@
 {
-  "name": "CSS custom styles",
+  "name": "Max Chrome Extension",
   "version": "1.0",
   "manifest_version": 3,
-  "description": "Custom styles for various websites",
+  "description": "Custom styles, view-source viewer and new tab clock",
   "permissions": ["contextMenus", "scripting", "storage", "activeTab"],
   "background": {
     "service_worker": "background.js"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
   },
   "content_scripts": [
     {
