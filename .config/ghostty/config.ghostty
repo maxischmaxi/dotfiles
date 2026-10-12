@@ -2,6 +2,7 @@ theme = TokyoNight Night
 copy-on-select = clipboard
 # Ghostty schluckt ctrl+v — in nvim stattdessen ctrl+q für Visual-Block.
 keybind = ctrl+v=paste_from_clipboard
+font-family = "FiraCode Nerd Font"
 font-size = 13
 font-thicken = true
 shell-integration = zsh
