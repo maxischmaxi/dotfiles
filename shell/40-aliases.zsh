@@ -12,4 +12,4 @@ alias v="nvim"
 alias icat="chafa"
 alias l="ls -al"
 
-alias claude="env -u ANTHROPIC_BASE_URL claude --dangerously-skip-permissions --effort=xhigh"
+alias claude="env -u ANTHROPIC_BASE_URL claude --dangerously-skip-permissions --effort=high"

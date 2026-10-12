@@ -7,6 +7,6 @@ matugen on every wallpaper change.
 
 - [ghostty](https://ghostty.org/) (terminal, `SUPER+Q`)
 - [walker](https://github.com/abenz1267/walker) + elephant (launcher, `ALT+SPACE`); rofi stays as fallback
-- swaync, hyprpaper, hypridle + hyprlock, hyprpicker
+- swaync, hypridle + hyprlock, hyprpicker
 - udiskie, cliphist + wl-clipboard, playerctl, brightnessctl, wtype, nwg-bar
 - matugen (colors), nautilus (file manager), slurp/grim for `scripts/capture-*.sh`

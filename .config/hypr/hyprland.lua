@@ -68,12 +68,17 @@ local tiling = layoutMode == "default"
 ------------------------------------------------------------------
 -- Samsung Odyssey G81SF — main display, sits at the origin.
 -- 240Hz at 4K only fits over DP with DSC; verified live before it was set here.
-hl.monitor({
-	output = "desc:Samsung Electric Company Odyssey G81SF HNBY900231",
-	mode = "3840x2160@240",
-	position = "0x0",
-	scale = 1,
-})
+-- Builder instead of a literal: the wake-up fix further down re-applies the
+-- rule with a temporary mode.
+local function samsungMonitor(mode)
+	return {
+		output = "desc:Samsung Electric Company Odyssey G81SF HNBY900231",
+		mode = mode or "3840x2160@240",
+		position = "0x0",
+		scale = 1,
+	}
+end
+hl.monitor(samsungMonitor())
 -- ASUS XG32UCDS 32" 4K@165 — second display, right of the Samsung.
 hl.monitor({
 	output = "desc:ASUSTek COMPUTER INC XG32UCDS T8LMQS046296",
@@ -133,8 +138,6 @@ hl.on("hyprland.start", function()
 	-- Zieht graphical-session.target hoch -> xdg-desktop-portal(-hyprland) -> Screen-Sharing
 	hl.exec_cmd("systemctl --user start hyprland-session.target")
 	hl.exec_cmd("swaync")
-	-- Reads ~/.config/hypr/hyprpaper.conf. Draws over misc:background_color below.
-	hl.exec_cmd("hyprpaper")
 	hl.exec_cmd("wl-paste --watch cliphist store")
 	-- Auto-mounts removable drives so they show up in the file manager
 	-- sidebar without a manual mount.
@@ -284,8 +287,8 @@ hl.config({
 	misc = {
 		force_default_wallpaper = 0,
 		disable_hyprland_logo = true,
-		-- Fallback behind the wallpaper: what shows before hyprpaper is up, or if
-		-- it dies. Needs disable_hyprland_logo = true (set above).
+		-- Plain black desktop, no wallpaper daemon. Needs
+		-- disable_hyprland_logo = true (set above).
 		background_color = "rgb(000000)",
 		-- Dunkle Displays bei jedem Tastendruck und jeder Mausbewegung wieder
 		-- einschalten. Ohne das gibt es nach einem DPMS-off KEINEN Weg, die
@@ -1040,46 +1043,53 @@ end
 hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
 
 ------------------------------------------------------------------
--- Monitor-Watchdog: Der Samsung (Odyssey G81SF) bleibt nach dem Wieder-
--- Anschalten gelegentlich schwarz. Ursache im Treiber (nvidia-drm 615 +
--- aquamarine): Beim Reconnect modesetet aquamarine das Panel zwar, aber der
--- abschließende Commit scheitert an einem noch ausstehenden Page-Flip
--- ("Cannot commit when a page-flip is awaiting" im hyprland.log) — das Panel
--- bekommt nie ein Signal, Hyprland hält den Monitor trotzdem für aktiv
--- (dpms_status=true). Ein DPMS-Zyklus hilft NICHT (der neue Commit rennt in
--- denselben hängenden Flip), force_renderer_reload räumt den Flip ab und
--- modesetet frisch — gemessen: danach kommt der Modeset ohne Commit-Fehler
--- durch. Kostet ein kurzes Schwarzblitzen auf allen Displays.
--- Erkennung: monitor.added, Auflösung über die description (EDID: Modell
--- + Serial) statt des Port-Namens, da DP-1/DP-2 je nach Boot/Treiber
--- tauschen. Das Event-Objekt liefert nur .name (keine description, am
--- Headless-Output gemessen), deshalb wird der Samsung nachgeschlagen und erst
--- dann — mit 1s Abstand, damit das initiale Modesetting abgeschlossen ist —
--- der Reload ausgelöst.
+-- Samsung wake-up fix. ~4s after waking from standby the Odyssey G81SF
+-- drops HPD for ~1s. Aquamarine re-enables the output the moment HPD comes
+-- back, before the panel is ready, and the DP link ends up without a picture
+-- (black, "DisplayPort" OSD, standby, repeat). Commits with the same mode
+-- don't help, the kernel skips the real modeset (that's why the old
+-- force_renderer_reload watchdog never worked). A mode change does:
+-- 240 -> 120 -> 240 brought the picture back (measured 2026-10-06).
+-- Only after a removal, so the initial monitor.added at startup is ignored.
+------------------------------------------------------------------
 local SAMSUNG_DESC = "Samsung Electric Company Odyssey G81SF"
+local relink = { armed = false, gen = 0 }
 
--- Der Reload soll NUR anstoßen, wenn der Samsung selbst (re)connected wurde.
--- Das Event-Objekt ist userdata und trägt nur .name (description fehlt, am
--- Headless-Output gemessen); den Samsung-Namen deshalb über get_monitors()
--- per description auflösen und vergleichen. pcall sichert den Feldzugriff ab,
--- falls ein künftiges Hyprland das Objekt ändert.
+-- The event object only carries .name, so resolve the description here.
+local function isSamsung(name)
+	for _, mon in ipairs(hl.get_monitors()) do
+		if mon.name == name then
+			return type(mon.description) == "string" and mon.description:find(SAMSUNG_DESC, 1, true) ~= nil, mon
+		end
+	end
+	return false
+end
+
+hl.on("monitor.removed", function()
+	relink.armed = true
+end)
+
 hl.on("monitor.added", function(m)
 	local ok, name = pcall(function()
 		return m.name
 	end)
-	if not ok or not name then
+	if not ok or not name or not relink.armed or not isSamsung(name) then
 		return
 	end
-	for _, mon in ipairs(hl.get_monitors()) do
-		if type(mon.description) == "string" and mon.description:find(SAMSUNG_DESC, 1, true) then
-			if mon.name == name then
-				hl.timer(function()
-					hl.dispatch(hl.dsp.force_renderer_reload())
-				end, { timeout = 1000, type = "oneshot" })
-			end
+	relink.armed = false
+	-- A newer reconnect supersedes a pending sequence.
+	relink.gen = relink.gen + 1
+	local gen = relink.gen
+	hl.timer(function()
+		local samsung, mon = isSamsung(name)
+		if gen ~= relink.gen or not samsung or not mon.dpms_status then
 			return
 		end
-	end
+		hl.monitor(samsungMonitor("3840x2160@120"))
+		hl.timer(function()
+			hl.monitor(samsungMonitor())
+		end, { timeout = 1500, type = "oneshot" })
+	end, { timeout = 3000, type = "oneshot" })
 end)
 hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 

@@ -12,6 +12,7 @@
 # general info
 
 - we're using arch/hyprland keep in mind that if you control windows like chrome etc that we have a tiling window manager and windows might be very small due to that
+- chrome-devtools mcp: the browser starts with an empty about:blank page that is already selected. load the first url with `navigate_page` on that page instead of `new_page`. only use `new_page` when you really need an additional tab.
 
 # Tailwind CSS
 
