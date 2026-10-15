@@ -16,7 +16,7 @@ source "$HOME/dotfiles/projects-dir.sh"
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    selected=$(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' 2>/dev/null | sort | fzf)
+    selected=$(projects_list | fzf --delimiter='\t' --with-nth=2 | cut -f1)
 fi
 
 if [[ -z $selected ]]; then
@@ -24,6 +24,8 @@ if [[ -z $selected ]]; then
 fi
 
 selected_name=$(basename "$selected" | tr . _)
+# Prefix work sessions so they never collide with a private project of the same name.
+[[ -n ${WORK_PROJECTS_DIR:-} && $selected == "$WORK_PROJECTS_DIR"/* ]] && selected_name="arbeit-$selected_name"
 tmux_running=$(pgrep tmux)
 
 # Weder in tmux noch ein Server läuft -> frische Session und attach.

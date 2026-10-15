@@ -20,13 +20,15 @@ set -uo pipefail
 # fehlen — deshalb hier dieselbe Quelle sourcen statt den Pfad zu duplizieren.
 source "$HOME/dotfiles/projects-dir.sh"
 
-selected=$(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' 2>/dev/null | sort | fzf)
+selected=$(projects_list | fzf --delimiter='\t' --with-nth=2 | cut -f1)
 
 if [[ -z $selected ]]; then
     exit 0
 fi
 
 name=$(basename "$selected" | tr . _)
+# Prefix work sessions so they never collide with a private project of the same name.
+[[ -n ${WORK_PROJECTS_DIR:-} && $selected == "$WORK_PROJECTS_DIR"/* ]] && name="arbeit-$name"
 
 # Existiert die Session bereits -> dahin schalten; sonst wird sie mit dem
 # Projektpfad als cwd angelegt. Das schließt auch den Fall ab, dass derselbe

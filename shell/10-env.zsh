@@ -8,6 +8,9 @@
 # Single Source of Truth (siehe ~/dotfiles/projects-dir.sh). Muss vor
 # allem stehen, was Projektpfade braucht (vault, tmux-sessionizer).
 source "$HOME/dotfiles/projects-dir.sh"
+# Named dir: `cd ~c/vault`
+hash -d c="$PROJECTS_DIR"
+[[ -n $WORK_PROJECTS_DIR ]] && hash -d arbeit="$WORK_PROJECTS_DIR"
 
 export ANDROID_HOME="$HOME/Android/Sdk/"
 

@@ -16,3 +16,19 @@ if [ -z "${PROJECTS_DIR:-}" ]; then
     fi
     export PROJECTS_DIR
 fi
+
+# Work projects live on their own disk.
+if [ -z "${WORK_PROJECTS_DIR:-}" ] && [ -d /arbeit ]; then
+    WORK_PROJECTS_DIR=/arbeit
+    export WORK_PROJECTS_DIR
+fi
+
+# List projects as "<real path>\t<short display path>" for fzf pickers.
+projects_list() {
+    {
+        find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' -printf '%p\t~c/%f\n'
+        if [ -n "${WORK_PROJECTS_DIR:-}" ]; then
+            find "$WORK_PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' -printf '%p\t~arbeit/%f\n'
+        fi
+    } 2>/dev/null | sort -t "$(printf '\t')" -k2
+}
