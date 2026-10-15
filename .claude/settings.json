@@ -3,19 +3,6 @@
     "defaultMode": "auto"
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "ExitPlanMode",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME/.claude/hooks/review-plan.mjs\"",
-            "timeout": 600,
-            "statusMessage": "Reviewing plan with glm-5.2:cloud (this can take several minutes)..."
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
