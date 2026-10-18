@@ -23,3 +23,14 @@ function render() {
 }
 
 render();
+
+// prepend favicons from chrome's favicon cache (needs "favicon" permission)
+for (const link of document.querySelectorAll(".links a")) {
+  const url = new URL(chrome.runtime.getURL("/_favicon/"));
+  url.searchParams.set("pageUrl", link.href);
+  url.searchParams.set("size", "32");
+  const img = document.createElement("img");
+  img.src = url.href;
+  img.alt = "";
+  link.prepend(img);
+}

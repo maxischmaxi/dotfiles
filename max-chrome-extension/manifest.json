@@ -3,7 +3,7 @@
   "version": "1.0",
   "manifest_version": 3,
   "description": "Custom styles, view-source viewer and new tab clock",
-  "permissions": ["contextMenus", "scripting", "storage", "activeTab"],
+  "permissions": ["contextMenus", "scripting", "storage", "activeTab", "favicon"],
   "background": {
     "service_worker": "background.js"
   },
