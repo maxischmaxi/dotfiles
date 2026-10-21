@@ -340,11 +340,14 @@ hl.config({
 	},
 })
 
--- Logitech X2 Superstrike: overrides the global input.sensitivity
-hl.device({
-	name = "logitech-x2-superstrike-1",
-	sensitivity = -0.25,
-})
+-- Logitech X2 Superstrike: overrides the global input.sensitivity.
+-- The mouse shows up under a different name via dongle and via USB cable.
+for _, name in ipairs({ "logitech-x2-superstrike-1", "logitech-pro-x2-superstrike" }) do
+	hl.device({
+		name = name,
+		sensitivity = -0.25,
+	})
+end
 
 ------------------------------------------------------------------
 -- Animations-Kurven & -Zuordnungen
