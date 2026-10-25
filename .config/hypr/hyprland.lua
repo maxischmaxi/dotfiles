@@ -76,6 +76,19 @@ hl.env("XCURSOR_THEME", "Bibata-Modern-Classic")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Classic")
 hl.env("HYPRCURSOR_SIZE", "24")
+-- Render and scan out on the RTX 5070 only, the Radeon iGPU has no monitor.
+-- /dev/dri/nvidia-dgpu comes from a udev rule (/etc/udev/rules.d/
+-- 90-nvidia-dgpu-dev-path.rules): the cardN numbers change between boots and
+-- the by-path names contain colons, the separator of this variable. Only set
+-- when the link exists, a dead path would leave Hyprland without a GPU.
+local dgpu = "/dev/dri/nvidia-dgpu"
+local dgpuCheck = io.popen("test -e " .. dgpu .. " && echo y")
+if dgpuCheck then
+	if dgpuCheck:read("*a") ~= "" then
+		hl.env("AQ_DRM_DEVICES", dgpu)
+	end
+	dgpuCheck:close()
+end
 
 ------------------------------------------------------------------
 -- Workspaces an Monitore binden
@@ -146,7 +159,9 @@ hl.config({
 			inactive_border = "rgb(000000)",
 		},
 		resize_on_border = false,
-		allow_tearing = false,
+		-- Master toggle for tearing: only windows with the immediate rule tear,
+		-- and only while they are fullscreen and alone on their monitor.
+		allow_tearing = true,
 	},
 
 	dwindle = {
@@ -235,8 +250,10 @@ hl.config({
 		},
 	},
 
+	-- Off for the snappiest feel. The curves and leaves below stay defined, so
+	-- enabled = true brings them back as they were.
 	animations = {
-		enabled = true,
+		enabled = false,
 	},
 
 	misc = {
@@ -1021,6 +1038,10 @@ hl.window_rule({ match = { class = "^(Godot)$", title = "^Please Confirm.*$" }, 
 
 hl.window_rule({ match = { class = "^(steam)$", title = "^(Friends List)$" }, float = true })
 hl.window_rule({ match = { class = "^(steam)$", title = "^(Friends List)$" }, no_anim = true })
+
+-- Tearing for games (general.allow_tearing): Proton/Steam games and anything
+-- running inside gamescope (gamescope-wrapper.sh). Add more classes here.
+hl.window_rule({ match = { class = "^(steam_app_.*|gamescope)$" }, immediate = true })
 
 hl.window_rule({
 	match = {
