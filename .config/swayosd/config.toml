@@ -1,0 +1,12 @@
+[server]
+# Bottom centre, like the Windows volume flyout.
+top_margin = 0.85
+
+# Same cap as the old wpctl bind (-l 1).
+max_volume = 100
+
+show_percentage = true
+
+duration = 1000
+
+[client]

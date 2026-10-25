@@ -138,6 +138,7 @@ hl.on("hyprland.start", function()
 	-- Zieht graphical-session.target hoch -> xdg-desktop-portal(-hyprland) -> Screen-Sharing
 	hl.exec_cmd("systemctl --user start hyprland-session.target")
 	hl.exec_cmd("swaync")
+	hl.exec_cmd("swayosd-server")
 	hl.exec_cmd("wl-paste --watch cliphist store")
 	-- Auto-mounts removable drives so they show up in the file manager
 	-- sidebar without a manual mount.
@@ -345,7 +346,7 @@ hl.config({
 for _, name in ipairs({ "logitech-x2-superstrike-1", "logitech-pro-x2-superstrike" }) do
 	hl.device({
 		name = name,
-		sensitivity = -0.25,
+		sensitivity = -0.5,
 	})
 end
 
@@ -953,24 +954,25 @@ hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 -- Lautstärke / Helligkeit (locked = auch bei Lockscreen, repeating = Wiederholung)
+-- Volume goes through swayosd-client: it sets the volume and shows the OSD.
 hl.bind(
 	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+"),
+	hl.dsp.exec_cmd("swayosd-client --output-volume +1"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioLowerVolume",
-	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%-"),
+	hl.dsp.exec_cmd("swayosd-client --output-volume -1"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioMute",
-	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),
+	hl.dsp.exec_cmd("swayosd-client --output-volume mute-toggle"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioMicMute",
-	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
+	hl.dsp.exec_cmd("swayosd-client --input-volume mute-toggle"),
 	{ locked = true, repeating = true }
 )
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+"), { locked = true, repeating = true })
@@ -1053,7 +1055,8 @@ hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
 -- don't help, the kernel skips the real modeset (that's why the old
 -- force_renderer_reload watchdog never worked). A mode change does:
 -- 240 -> 120 -> 240 brought the picture back (measured 2026-10-06).
--- Only after a removal, so the initial monitor.added at startup is ignored.
+-- Cold boot has the same symptom without any HPD drop (measured 2026-10-25),
+-- so the sequence also runs once at startup.
 ------------------------------------------------------------------
 local SAMSUNG_DESC = "Samsung Electric Company Odyssey G81SF"
 local relink = { armed = false, gen = 0 }
@@ -1068,18 +1071,8 @@ local function isSamsung(name)
 	return false
 end
 
-hl.on("monitor.removed", function()
-	relink.armed = true
-end)
-
-hl.on("monitor.added", function(m)
-	local ok, name = pcall(function()
-		return m.name
-	end)
-	if not ok or not name or not relink.armed or not isSamsung(name) then
-		return
-	end
-	relink.armed = false
+-- Forces a real modeset via a short detour to 120Hz.
+local function relinkSamsung(name)
 	-- A newer reconnect supersedes a pending sequence.
 	relink.gen = relink.gen + 1
 	local gen = relink.gen
@@ -1093,6 +1086,29 @@ hl.on("monitor.added", function(m)
 			hl.monitor(samsungMonitor())
 		end, { timeout = 1500, type = "oneshot" })
 	end, { timeout = 3000, type = "oneshot" })
+end
+
+hl.on("monitor.removed", function()
+	relink.armed = true
+end)
+
+hl.on("monitor.added", function(m)
+	local ok, name = pcall(function()
+		return m.name
+	end)
+	if not ok or not name or not relink.armed or not isSamsung(name) then
+		return
+	end
+	relink.armed = false
+	relinkSamsung(name)
+end)
+
+hl.on("hyprland.start", function()
+	for _, mon in ipairs(hl.get_monitors()) do
+		if isSamsung(mon.name) then
+			relinkSamsung(mon.name)
+		end
+	end
 end)
 hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 
