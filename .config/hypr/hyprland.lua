@@ -34,34 +34,6 @@ local menu = "~/.config/hypr/scripts/walker.sh"
 local mainMod = "SUPER"
 
 ------------------------------------------------------------------
--- Layout-Modus
--- The one knob to flip: set it, then `hyprctl reload`.
---   "default"   = stock Hyprland tiling (dwindle)
---   "floating"  = every window floats, keyboard snapping/scaling instead
---   "scrolling" = niri-style tape
--- It switches general.layout, the gaps, the catch-all float rule and the
--- layout-specific keybinds further down in one go.
-------------------------------------------------------------------
-local layoutMode = "default"
-
--- gaps_in sits on every window edge, so windows end up 2*gaps_in apart;
--- gaps_out only applies to edges that touch the monitor.
-local layouts = {
-	default = { layout = "dwindle", gaps_in = 0, gaps_out = 0 },
-	-- floating has no layout of its own: the catch-all window rule at the
-	-- bottom is what floats the windows, dwindle only catches what it misses.
-	floating = { layout = "dwindle", gaps_in = 0, gaps_out = 0 },
-	scrolling = { layout = "scrolling", gaps_in = 0, gaps_out = 0 },
-}
--- A typo must not take the session down with it.
-if not layouts[layoutMode] then
-	layoutMode = "default"
-end
-local mode = layouts[layoutMode]
-local floating = layoutMode == "floating"
-local tiling = layoutMode == "default"
-
-------------------------------------------------------------------
 -- Monitore (Namen/Modes via `hyprctl monitors`)
 -- desc: statt Port-Name — die DP-/HDMI-Namen wechseln je nach Boot/Treiber.
 -- desc bindet an die EDID (Modell + Serial) und bleibt stabil.
@@ -154,24 +126,16 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd("~/.config/hypr/scripts/set-xwayland-primary.sh")
 end)
 
--- Raise on focus: Hyprland keeps the floating stack as it is when focus moves,
--- so a window can stay buried under the one you just left. There is no config
--- option for it, so do it on every focus change. Only floating mode has a
--- stack worth reordering, so the other modes do not register the handler.
-if floating then
-	hl.on("window.active", function()
-		hl.dispatch(hl.dsp.window.bring_to_top())
-	end)
-end
-
 ------------------------------------------------------------------
 -- Look & Feel + Input
 ------------------------------------------------------------------
 hl.config({
 	general = {
-		layout = mode.layout,
-		gaps_in = mode.gaps_in,
-		gaps_out = mode.gaps_out,
+		layout = "dwindle",
+		-- gaps_in sits on every window edge, so windows end up 2*gaps_in apart;
+		-- gaps_out only applies to edges that touch the monitor.
+		gaps_in = 0,
+		gaps_out = 0,
 		-- Focus is marked by the border. The alternative is dimming the inactive
 		-- windows (decoration.dim_inactive below): set border_size = 0 and
 		-- dim_inactive = true to switch. Colors are hardcoded so the matugen
@@ -187,16 +151,6 @@ hl.config({
 
 	dwindle = {
 		preserve_split = true,
-	},
-
-	-- niri-style: windows live on an infinite horizontal tape
-	scrolling = {
-		direction = "right",
-		column_width = 0.5,
-		fullscreen_on_one_column = true,
-		focus_fit_method = 1, -- 0 = center, 1 = fit
-		follow_focus = true,
-		explicit_column_widths = "0.333, 0.5, 0.667, 1.0",
 	},
 
 	master = {
@@ -258,7 +212,7 @@ hl.config({
 		dim_inactive = false,
 		dim_strength = 0.3,
 		shadow = {
-			-- Off in every layout mode: render_power 3 is the priciest step and
+			-- Off: render_power 3 is the priciest step and
 			-- telling windows apart is the dimming's job now.
 			-- To bring it back: enabled = true.
 			enabled = false,
@@ -360,8 +314,7 @@ hl.curve("almostLinear", { type = "bezier", points = { { 0.5, 0.5 }, { 0.75, 1.0
 hl.curve("quick", { type = "bezier", points = { { 0.15, 0 }, { 0.1, 1 } } })
 
 -- speed = Dauer in ds (1 = 100ms), also: kleiner = schneller. Durchgehend etwa
--- halbierte Upstream-Defaults. windowsMove ist explizit gesetzt, weil daran das
--- Sliden im Scrolling-Layout hängt.
+-- halbierte Upstream-Defaults.
 hl.animation({ leaf = "global", enabled = true, speed = 5, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 2.5, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windows", enabled = true, speed = 2, bezier = "easeOutQuint" })
@@ -387,8 +340,8 @@ hl.animation({ leaf = "workspacesOut", enabled = false, speed = 1, bezier = "alm
 -- Keybindings
 ------------------------------------------------------------------
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
--- ENTER = real fullscreen, for video and games (direct scanout). F is bound
--- per layout mode further down.
+-- ENTER = real fullscreen, for video and games (direct scanout). F maximizes
+-- instead, see the tiling binds further down.
 hl.bind(mainMod .. " + Return", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 hl.bind(mainMod .. " + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + M", hl.dsp.exit())
@@ -774,8 +727,8 @@ local function focusHorizontal(step)
 	end
 end
 
--- Same in every layout mode: walk the windows left/right, and once there is
--- none left in that direction carry on into the neighbouring workspace.
+-- Walk the windows left/right, and once there is none left in that direction
+-- carry on into the neighbouring workspace.
 hl.bind(mainMod .. " + h", focusHorizontal(-1))
 hl.bind(mainMod .. " + l", focusHorizontal(1))
 -- j/k only move focus down/up. Workspaces live on SUPER+1..0 and N/P now.
@@ -783,7 +736,7 @@ hl.bind(mainMod .. " + j", hl.dsp.focus({ direction = "down" }))
 hl.bind(mainMod .. " + k", hl.dsp.focus({ direction = "up" }))
 
 -- Usable area of a monitor: full size minus reserved edges, scale
--- corrected. Both snapping and scaling below work against it.
+-- corrected. The remembered window geometry further down works against it.
 local function monitorArea(m)
 	local r = m.reserved or {}
 	local scale = m.scale or 1
@@ -800,130 +753,30 @@ local function usableArea(win)
 	return m and monitorArea(m)
 end
 
--- Snapping: Hyprland has no notion of screen halves, so do the math here.
--- fx/fy = position, fw/fh = size, each as a fraction of the usable area.
-local function snap(fx, fy, fw, fh)
-	return function()
-		local win = hl.get_active_window()
-		local a = win and usableArea(win)
-		if not a then
-			return
-		end
-		if not win.floating then
-			hl.dispatch(hl.dsp.window.float({ action = "enable" }))
-		end
-		hl.dispatch(hl.dsp.window.resize({ x = math.floor(a.w * fw), y = math.floor(a.h * fh) }))
-		hl.dispatch(hl.dsp.window.move({ x = math.floor(a.x + a.w * fx), y = math.floor(a.y + a.h * fy) }))
-	end
-end
-
--- Grow/shrink around the window's center. Clamped to the usable area and to a
--- floor of 320x200 so a window can never be scaled into nothing.
-local function scaleWindow(factor)
-	return function()
-		local win = hl.get_active_window()
-		local a = win and usableArea(win)
-		if not a then
-			return
-		end
-		local nw = math.floor(math.max(320, math.min(a.w, win.size.x * factor)))
-		local nh = math.floor(math.max(200, math.min(a.h, win.size.y * factor)))
-		local nx = math.floor(win.at.x + (win.size.x - nw) / 2)
-		local ny = math.floor(win.at.y + (win.size.y - nh) / 2)
-		-- pull back inside the work area if the center moved it past an edge
-		nx = math.max(a.x, math.min(a.x + a.w - nw, nx))
-		ny = math.max(a.y, math.min(a.y + a.h - nh, ny))
-		if not win.floating then
-			hl.dispatch(hl.dsp.window.float({ action = "enable" }))
-		end
-		hl.dispatch(hl.dsp.window.resize({ x = nw, y = nh }))
-		hl.dispatch(hl.dsp.window.move({ x = nx, y = ny }))
-	end
-end
-
-if floating then
-	-- +/- scale by 10% in both directions; shrinking uses 1/1.1 so that a plus
-	-- and a minus cancel each other out exactly.
-	hl.bind(mainMod .. " + plus", scaleWindow(1.1))
-	hl.bind(mainMod .. " + minus", scaleWindow(1 / 1.1))
-	hl.bind(mainMod .. " + KP_Add", scaleWindow(1.1))
-	hl.bind(mainMod .. " + KP_Subtract", scaleWindow(1 / 1.1))
-
-	-- SUPER+F fills the usable area by resizing instead of entering Hyprland's
-	-- maximize mode: a maximized or fullscreen window leaves the floating stack,
-	-- and raise-on-focus can no longer lift it above the others. Pressing it
-	-- again returns to the centered default size.
-	hl.bind(mainMod .. " + F", function()
-		local win = hl.get_active_window()
-		local a = win and usableArea(win)
-		if not a then
-			return
-		end
-		if win.size.x >= a.w - 4 and win.size.y >= a.h - 4 then
-			snap(0.2, 0.15, 0.6, 0.7)()
-		else
-			snap(0, 0, 1, 1)()
-		end
-	end)
-
-	-- halves on SHIFT+hjkl
-	hl.bind(mainMod .. " + SHIFT + h", snap(0, 0, 0.5, 1))
-	hl.bind(mainMod .. " + SHIFT + l", snap(0.5, 0, 0.5, 1))
-	hl.bind(mainMod .. " + SHIFT + k", snap(0, 0, 1, 0.5))
-	hl.bind(mainMod .. " + SHIFT + j", snap(0, 0.5, 1, 0.5))
-	-- quarters on CTRL+1..4, read as a 2x2 grid:
-	-- 1 = top left, 2 = top right, 3 = bottom left, 4 = bottom right
-	hl.bind(mainMod .. " + CTRL + 1", snap(0, 0, 0.5, 0.5))
-	hl.bind(mainMod .. " + CTRL + 2", snap(0.5, 0, 0.5, 0.5))
-	hl.bind(mainMod .. " + CTRL + 3", snap(0, 0.5, 0.5, 0.5))
-	hl.bind(mainMod .. " + CTRL + 4", snap(0.5, 0.5, 0.5, 0.5))
-	-- centered at 60x70% — the default spot for a single window
-	hl.bind(mainMod .. " + SHIFT + Return", snap(0.2, 0.15, 0.6, 0.7))
-
-	-- CTRL+hjkl nudges the window pixel-wise (counterpart to the arrow keys
-	-- above, which resize).
-	hl.bind(mainMod .. " + CTRL + h", hl.dsp.window.move({ x = -60, y = 0, relative = true }))
-	hl.bind(mainMod .. " + CTRL + l", hl.dsp.window.move({ x = 60, y = 0, relative = true }))
-	hl.bind(mainMod .. " + CTRL + k", hl.dsp.window.move({ x = 0, y = -60, relative = true }))
-	hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.move({ x = 0, y = 60, relative = true }))
-	hl.bind(mainMod .. " + R", hl.dsp.window.center())
-	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
-elseif tiling then
-	hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
-	-- dwindle splits the focused tile; O flips the split axis of the current one
-	hl.bind(mainMod .. " + O", hl.dsp.layout("togglesplit"))
-	-- SHIFT+hjkl swaps the two windows, CTRL+hjkl pulls the window out and
-	-- re-inserts it on that side (both cross monitors at the outer edge).
-	hl.bind(mainMod .. " + SHIFT + h", hl.dsp.window.swap({ direction = "left" }))
-	hl.bind(mainMod .. " + SHIFT + l", hl.dsp.window.swap({ direction = "right" }))
-	hl.bind(mainMod .. " + SHIFT + k", hl.dsp.window.swap({ direction = "up" }))
-	hl.bind(mainMod .. " + SHIFT + j", hl.dsp.window.swap({ direction = "down" }))
-	hl.bind(mainMod .. " + CTRL + h", hl.dsp.window.move({ direction = "left" }))
-	hl.bind(mainMod .. " + CTRL + l", hl.dsp.window.move({ direction = "right" }))
-	hl.bind(mainMod .. " + CTRL + k", hl.dsp.window.move({ direction = "up" }))
-	hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.move({ direction = "down" }))
-	-- pseudotile: the window keeps its own size inside its tile instead of
-	-- being stretched to fill it.
-	hl.bind(mainMod .. " + R", hl.dsp.window.pseudo())
-	-- pin only bites on floating windows — SUPER+V first, then this.
-	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
-	-- +/- widen/narrow the active tile, same step as the arrow keys above
-	hl.bind(mainMod .. " + plus", hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
-	hl.bind(mainMod .. " + minus", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
-	hl.bind(mainMod .. " + KP_Add", hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
-	hl.bind(mainMod .. " + KP_Subtract", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
-else
-	hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
-	-- scrolling: move the column / pan the view without moving focus / widths
-	hl.bind(mainMod .. " + SHIFT + h", hl.dsp.layout("swapcol l"))
-	hl.bind(mainMod .. " + SHIFT + l", hl.dsp.layout("swapcol r"))
-	hl.bind(mainMod .. " + CTRL + h", hl.dsp.layout("move -col"))
-	hl.bind(mainMod .. " + CTRL + l", hl.dsp.layout("move +col"))
-	hl.bind(mainMod .. " + R", hl.dsp.layout("colresize +conf"))
-	hl.bind(mainMod .. " + SHIFT + R", hl.dsp.layout("fit expand"))
-	hl.bind(mainMod .. " + BRACKETLEFT", hl.dsp.layout("consume_or_expel prev"))
-	hl.bind(mainMod .. " + BRACKETRIGHT", hl.dsp.layout("consume_or_expel next"))
-end
+-- Tiling binds (dwindle)
+hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
+-- dwindle splits the focused tile; O flips the split axis of the current one
+hl.bind(mainMod .. " + O", hl.dsp.layout("togglesplit"))
+-- SHIFT+hjkl swaps the two windows, CTRL+hjkl pulls the window out and
+-- re-inserts it on that side (both cross monitors at the outer edge).
+hl.bind(mainMod .. " + SHIFT + h", hl.dsp.window.swap({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + l", hl.dsp.window.swap({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + k", hl.dsp.window.swap({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + j", hl.dsp.window.swap({ direction = "down" }))
+hl.bind(mainMod .. " + CTRL + h", hl.dsp.window.move({ direction = "left" }))
+hl.bind(mainMod .. " + CTRL + l", hl.dsp.window.move({ direction = "right" }))
+hl.bind(mainMod .. " + CTRL + k", hl.dsp.window.move({ direction = "up" }))
+hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.move({ direction = "down" }))
+-- pseudotile: the window keeps its own size inside its tile instead of
+-- being stretched to fill it.
+hl.bind(mainMod .. " + R", hl.dsp.window.pseudo())
+-- pin only bites on floating windows — SUPER+V first, then this.
+hl.bind(mainMod .. " + SHIFT + R", hl.dsp.window.pin())
+-- +/- widen/narrow the active tile, same step as the arrow keys above
+hl.bind(mainMod .. " + plus", hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
+hl.bind(mainMod .. " + minus", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
+hl.bind(mainMod .. " + KP_Add", hl.dsp.window.resize({ x = 40, y = 0, relative = true }))
+hl.bind(mainMod .. " + KP_Subtract", hl.dsp.window.resize({ x = -40, y = 0, relative = true }))
 
 -- Workspaces wechseln (SUPER+1..0) / aktives Fenster verschieben (SUPER+SHIFT+1..0)
 for i = 1, 10 do
@@ -1115,17 +968,6 @@ hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 ------------------------------------------------------------------
 -- Window Rules (Reihenfolge = top-to-bottom, wie in hyprland.conf)
 ------------------------------------------------------------------
--- Catch-all first: Hyprland has no "floating" layout, this rule *is* the mode.
--- Sits on top so the more specific rules below (rounding, border_size, no_anim)
--- still apply.
-if floating then
-	hl.window_rule({ match = { class = ".*" }, float = true })
-	-- Optional, in case windows open too small on 4K — but this hits dialogs
-	-- and PiP as well:
-	-- hl.window_rule({ match = { class = ".*" }, size = "60% 60%" })
-	-- hl.window_rule({ match = { class = ".*" }, center = true })
-end
-
 -- Ghostty opens at its 800x600 toolkit default, which is a postage stamp on 4K.
 -- 1920x1166 is half the screen's width and ~160x44 cells at font-size 15
 -- (cell ~12x26 px). Pixels, not "50% 54%": the size effect is parsed as a math
