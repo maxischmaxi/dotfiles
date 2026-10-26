@@ -931,31 +931,46 @@ hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
 local SAMSUNG_DESC = "Samsung Electric Company Odyssey G81SF"
 local relink = { armed = false, gen = 0 }
 
--- The event object only carries .name, so resolve the description here.
-local function isSamsung(name)
+-- Temporary diagnostics (2026-10-26): runtime mode changes never show up in
+-- hyprland.log, so the boot path logs here. Remove once the boot fix is proven.
+local relinkLogFile = os.getenv("HOME") .. "/.local/state/hypr-samsung-relink.log"
+local function relinkLog(msg)
+	local f = io.open(relinkLogFile, "a")
+	if f then
+		f:write(os.date("%Y-%m-%d %H:%M:%S ") .. msg .. "\n")
+		f:close()
+	end
+end
+
+-- Looked up by description at the moment it is needed: at hyprland.start the
+-- monitor list may still be empty.
+local function findSamsung()
 	for _, mon in ipairs(hl.get_monitors()) do
-		if mon.name == name then
-			return type(mon.description) == "string" and mon.description:find(SAMSUNG_DESC, 1, true) ~= nil, mon
+		if type(mon.description) == "string" and mon.description:find(SAMSUNG_DESC, 1, true) then
+			return mon
 		end
 	end
-	return false
 end
 
 -- Forces a real modeset via a short detour to 120Hz.
-local function relinkSamsung(name)
+local function relinkSamsung(delay, reason)
 	-- A newer reconnect supersedes a pending sequence.
 	relink.gen = relink.gen + 1
 	local gen = relink.gen
+	relinkLog(reason .. ": scheduled in " .. delay .. "ms, monitors now: " .. #hl.get_monitors())
 	hl.timer(function()
-		local samsung, mon = isSamsung(name)
-		if gen ~= relink.gen or not samsung or not mon.dpms_status then
+		local mon = findSamsung()
+		if gen ~= relink.gen or not mon or not mon.dpms_status then
+			relinkLog(reason .. ": skipped (superseded=" .. tostring(gen ~= relink.gen) .. ", found=" .. tostring(mon ~= nil) .. ")")
 			return
 		end
+		relinkLog(reason .. ": 120Hz on " .. mon.name)
 		hl.monitor(samsungMonitor("3840x2160@120"))
 		hl.timer(function()
 			hl.monitor(samsungMonitor())
+			relinkLog(reason .. ": back to 240Hz")
 		end, { timeout = 1500, type = "oneshot" })
-	end, { timeout = 3000, type = "oneshot" })
+	end, { timeout = delay, type = "oneshot" })
 end
 
 hl.on("monitor.removed", function()
@@ -966,19 +981,17 @@ hl.on("monitor.added", function(m)
 	local ok, name = pcall(function()
 		return m.name
 	end)
-	if not ok or not name or not relink.armed or not isSamsung(name) then
+	local mon = findSamsung()
+	if not ok or not relink.armed or not mon or mon.name ~= name then
 		return
 	end
 	relink.armed = false
-	relinkSamsung(name)
+	relinkSamsung(3000, "wake")
 end)
 
+-- Longer delay than after a wake-up: the panel needs a while after a cold boot.
 hl.on("hyprland.start", function()
-	for _, mon in ipairs(hl.get_monitors()) do
-		if isSamsung(mon.name) then
-			relinkSamsung(mon.name)
-		end
-	end
+	relinkSamsung(6000, "boot")
 end)
 hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 
