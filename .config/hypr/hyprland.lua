@@ -40,14 +40,16 @@ local mainMod = "SUPER"
 ------------------------------------------------------------------
 -- Samsung Odyssey G81SF — main display, sits at the origin.
 -- 240Hz at 4K only fits over DP with DSC; verified live before it was set here.
--- Builder instead of a literal: the wake-up fix further down re-applies the
--- rule with a temporary mode.
-local function samsungMonitor(mode)
+-- Builder instead of a literal: the wake-up fix further down disables the
+-- output and re-applies this rule. disabled = false is needed, otherwise the
+-- disabled flag of the previous rule sticks.
+local function samsungMonitor()
 	return {
 		output = "desc:Samsung Electric Company Odyssey G81SF HNBY900231",
-		mode = mode or "3840x2160@240",
+		mode = "3840x2160@240",
 		position = "0x0",
 		scale = 1,
+		disabled = false,
 	}
 end
 hl.monitor(samsungMonitor())
@@ -923,13 +925,14 @@ hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
 -- back, before the panel is ready, and the DP link ends up without a picture
 -- (black, "DisplayPort" OSD, standby, repeat). Commits with the same mode
 -- don't help, the kernel skips the real modeset (that's why the old
--- force_renderer_reload watchdog never worked). A mode change does:
--- 240 -> 120 -> 240 brought the picture back (measured 2026-10-06).
+-- force_renderer_reload watchdog never worked). A mode detour 240 -> 120 -> 240
+-- worked at first (2026-10-06) but not on 2026-10-27; disabling the output and
+-- enabling it again (releases the CRTC, like a replug) did.
 -- Cold boot has the same symptom without any HPD drop (measured 2026-10-25),
--- so the sequence also runs once at startup.
+-- so the sequence also runs once at startup. SUPER+CTRL+M runs it by hand.
 ------------------------------------------------------------------
 local SAMSUNG_DESC = "Samsung Electric Company Odyssey G81SF"
-local relink = { armed = false, gen = 0 }
+local relink = { armed = false, busy = false, gen = 0 }
 
 -- Temporary diagnostics (2026-10-26): runtime mode changes never show up in
 -- hyprland.log, so the boot path logs here. Remove once the boot fix is proven.
@@ -952,7 +955,7 @@ local function findSamsung()
 	end
 end
 
--- Forces a real modeset via a short detour to 120Hz.
+-- Disables the output and enables it again after 3s.
 local function relinkSamsung(delay, reason)
 	-- A newer reconnect supersedes a pending sequence.
 	relink.gen = relink.gen + 1
@@ -964,17 +967,24 @@ local function relinkSamsung(delay, reason)
 			relinkLog(reason .. ": skipped (superseded=" .. tostring(gen ~= relink.gen) .. ", found=" .. tostring(mon ~= nil) .. ")")
 			return
 		end
-		relinkLog(reason .. ": 120Hz on " .. mon.name)
-		hl.monitor(samsungMonitor("3840x2160@120"))
+		relinkLog(reason .. ": disabling " .. mon.name)
+		-- The cycle's own removed/added events must not re-arm the wake fix.
+		relink.busy = true
+		hl.monitor({ output = samsungMonitor().output, disabled = true })
 		hl.timer(function()
 			hl.monitor(samsungMonitor())
-			relinkLog(reason .. ": back to 240Hz")
-		end, { timeout = 1500, type = "oneshot" })
+			relinkLog(reason .. ": re-enabled")
+			hl.timer(function()
+				relink.busy = false
+			end, { timeout = 3000, type = "oneshot" })
+		end, { timeout = 3000, type = "oneshot" })
 	end, { timeout = delay, type = "oneshot" })
 end
 
 hl.on("monitor.removed", function()
-	relink.armed = true
+	if not relink.busy then
+		relink.armed = true
+	end
 end)
 
 hl.on("monitor.added", function(m)
@@ -982,7 +992,7 @@ hl.on("monitor.added", function(m)
 		return m.name
 	end)
 	local mon = findSamsung()
-	if not ok or not relink.armed or not mon or mon.name ~= name then
+	if not ok or relink.busy or not relink.armed or not mon or mon.name ~= name then
 		return
 	end
 	relink.armed = false
@@ -992,6 +1002,10 @@ end)
 -- Longer delay than after a wake-up: the panel needs a while after a cold boot.
 hl.on("hyprland.start", function()
 	relinkSamsung(6000, "boot")
+end)
+
+hl.bind("SUPER + CTRL + M", function()
+	relinkSamsung(1, "manual")
 end)
 hl.bind("CTRL + ALT + L", lockToggle, { locked = true })
 
