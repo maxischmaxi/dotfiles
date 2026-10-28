@@ -40,13 +40,12 @@ local mainMod = "SUPER"
 ------------------------------------------------------------------
 -- Samsung Odyssey G81SF — main display, sits at the origin.
 -- 240Hz at 4K only fits over DP with DSC; verified live before it was set here.
--- Builder instead of a literal: the wake-up fix further down disables the
--- output and re-applies this rule. disabled = false is needed, otherwise the
--- disabled flag of the previous rule sticks.
-local function samsungMonitor()
+-- Builder instead of a literal: the wake-up fix further down re-applies the
+-- rule with a temporary mode. disabled = false undoes a manual disable.
+local function samsungMonitor(mode)
 	return {
 		output = "desc:Samsung Electric Company Odyssey G81SF HNBY900231",
-		mode = "3840x2160@240",
+		mode = mode or "3840x2160@240",
 		position = "0x0",
 		scale = 1,
 		disabled = false,
@@ -925,14 +924,15 @@ hl.bind("CTRL + SHIFT + L", lockToggle, { locked = true })
 -- back, before the panel is ready, and the DP link ends up without a picture
 -- (black, "DisplayPort" OSD, standby, repeat). Commits with the same mode
 -- don't help, the kernel skips the real modeset (that's why the old
--- force_renderer_reload watchdog never worked). A mode detour 240 -> 120 -> 240
--- worked at first (2026-10-06) but not on 2026-10-27; disabling the output and
--- enabling it again (releases the CRTC, like a replug) did.
+-- force_renderer_reload watchdog never worked). A detour via 120Hz worked
+-- only sometimes, disable/enable too (both keep DSC). A detour via 60Hz, which
+-- needs no DSC, renegotiates DSC on the way back to 240 and fixed a black
+-- panel where both failed (2026-10-28).
 -- Cold boot has the same symptom without any HPD drop (measured 2026-10-25),
 -- so the sequence also runs once at startup. SUPER+CTRL+M runs it by hand.
 ------------------------------------------------------------------
 local SAMSUNG_DESC = "Samsung Electric Company Odyssey G81SF"
-local relink = { armed = false, busy = false, gen = 0 }
+local relink = { armed = false, gen = 0 }
 
 -- Temporary diagnostics (2026-10-26): runtime mode changes never show up in
 -- hyprland.log, so the boot path logs here. Remove once the boot fix is proven.
@@ -955,7 +955,7 @@ local function findSamsung()
 	end
 end
 
--- Disables the output and enables it again after 3s.
+-- 60Hz for a few seconds, then back to 240Hz.
 local function relinkSamsung(delay, reason)
 	-- A newer reconnect supersedes a pending sequence.
 	relink.gen = relink.gen + 1
@@ -967,24 +967,17 @@ local function relinkSamsung(delay, reason)
 			relinkLog(reason .. ": skipped (superseded=" .. tostring(gen ~= relink.gen) .. ", found=" .. tostring(mon ~= nil) .. ")")
 			return
 		end
-		relinkLog(reason .. ": disabling " .. mon.name)
-		-- The cycle's own removed/added events must not re-arm the wake fix.
-		relink.busy = true
-		hl.monitor({ output = samsungMonitor().output, disabled = true })
+		relinkLog(reason .. ": 60Hz on " .. mon.name)
+		hl.monitor(samsungMonitor("3840x2160@60"))
 		hl.timer(function()
 			hl.monitor(samsungMonitor())
-			relinkLog(reason .. ": re-enabled")
-			hl.timer(function()
-				relink.busy = false
-			end, { timeout = 3000, type = "oneshot" })
-		end, { timeout = 3000, type = "oneshot" })
+			relinkLog(reason .. ": back to 240Hz")
+		end, { timeout = 4000, type = "oneshot" })
 	end, { timeout = delay, type = "oneshot" })
 end
 
 hl.on("monitor.removed", function()
-	if not relink.busy then
-		relink.armed = true
-	end
+	relink.armed = true
 end)
 
 hl.on("monitor.added", function(m)
@@ -992,7 +985,7 @@ hl.on("monitor.added", function(m)
 		return m.name
 	end)
 	local mon = findSamsung()
-	if not ok or relink.busy or not relink.armed or not mon or mon.name ~= name then
+	if not ok or not relink.armed or not mon or mon.name ~= name then
 		return
 	end
 	relink.armed = false
