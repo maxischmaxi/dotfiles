@@ -3,7 +3,6 @@
 # ══════════════════════════════════════════════════════════════════════
 
 alias godot="$HOME/.local/bin/godot_v4_5_1"
-alias meet="meet-participants | wl-copy"
 
 alias oldvim="vim"
 alias vim="nvim"
@@ -12,4 +11,4 @@ alias v="nvim"
 alias icat="chafa"
 alias l="ls -al"
 
-alias claude="env -u ANTHROPIC_BASE_URL claude --dangerously-skip-permissions --effort=high"
+alias claude="env -u ANTHROPIC_BASE_URL claude"
