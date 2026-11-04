@@ -28,7 +28,13 @@ projects_list() {
     {
         find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' -printf '%p\t~c/%f\n'
         if [ -n "${WORK_PROJECTS_DIR:-}" ]; then
+            # Work repos are nested (e.g. globogate/github/<repo>): list every dir
+            # with a .git entry up to a few levels deep and stop descending there,
+            # so vendored sub-repos stay hidden. Top-level dirs are kept as well.
             find "$WORK_PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name 'lost+found' -printf '%p\t~arbeit/%f\n'
+            find "$WORK_PROJECTS_DIR" -mindepth 1 -maxdepth 4 \
+                \( -name '.*' -o -name node_modules -o -name 'lost+found' \) -prune -o \
+                -type d -exec test -e '{}/.git' \; -printf '%p\t~arbeit/%P\n' -prune
         fi
-    } 2>/dev/null | sort -t "$(printf '\t')" -k2
+    } 2>/dev/null | sort -u -t "$(printf '\t')" -k2
 }
