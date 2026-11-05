@@ -24,3 +24,5 @@ export COPILOT_PROVIDER_TYPE="anthropic"
 export COPILOT_PROVIDER_BASE_URL="http://127.0.0.1:8787"
 export OPENAI_BASE_URL="http://127.0.0.1:8787/v1"
 # <<< headroom persistent env <<<
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
