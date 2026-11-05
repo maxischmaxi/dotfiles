@@ -20,3 +20,5 @@
 - Niemals arbitrary values (`z-[2]`, `mt-[13px]`, `gap-[7]`, `p-[4]`) verwenden, wenn die native Scale dasselbe ausdrücken kann. Tailwind v4 erlaubt nackte Zahlen für viele Utilities (Spacing, z-index, grid, etc.) — bevorzuge `z-2`, `mt-13`, `gap-7`.
 - Bracket-Notation `[...]` nur dann, wenn der Wert wirklich nicht durch die Scale/Theme-Tokens ausdrückbar ist (z. B. ungewöhnliche Einheiten, CSS-Variablen, calc-Ausdrücke).
 - Bei bestehendem Code: wenn du eine Datei editierst und siehst, dass eine Klasse als Bracket-Notation steht, obwohl die Scale reicht, korrigiere sie im Zuge des Edits mit.
+
+@RTK.md
