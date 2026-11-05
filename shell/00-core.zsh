@@ -18,9 +18,6 @@ _zshrc_once() {
   _ZSHRC_LOADED[$1]=1
   return 0
 }
-(( ${+_ZSHRC_SOURCED} )) && print -u2 \
-  "zshrc: re-sourced — ZLE plugins kept from first load. Use 'exec zsh' to reload them."
-typeset -g _ZSHRC_SOURCED=1
 
 # --- Completions in fpath aufnehmen (MUSS vor compinit passieren) ---
 fpath=("$HOME/.zsh/completions" $fpath)

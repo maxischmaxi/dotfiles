@@ -5,5 +5,9 @@ FullScreen=false
 LockSidebar=true
 ShowSidebar=true
 
+[Recent Files]
+File1[$e]=$HOME/Downloads/UP-2026-0018.pdf
+Name1[$e]=UP-2026-0018.pdf
+
 [UiSettings]
 ColorScheme=TokyoNight

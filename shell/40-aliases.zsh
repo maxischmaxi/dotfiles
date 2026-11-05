@@ -11,4 +11,10 @@ alias v="nvim"
 alias icat="chafa"
 alias l="ls -al"
 
-alias claude="env -u ANTHROPIC_BASE_URL claude"
+# Pre-accept trust/external-includes dialogs, then start claude without the
+# local proxy base url. whence -p resolves the real binary, not this function.
+unalias claude 2>/dev/null
+function claude {
+	python3 -I "$HOME/dotfiles/claude-trust"
+	env -u ANTHROPIC_BASE_URL "$(whence -p claude)" "$@"
+}

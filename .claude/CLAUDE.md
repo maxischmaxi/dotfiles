@@ -8,6 +8,7 @@
 - never ever write german comments in files, always english. dont write over expressive comments, keep them short and simple as far as posslbe
 - when you move or rename files inside a git repository always use git mv so git tracks it correctly
 - always answer in lowercase in any language except if you're told otherwise
+- never ever write "generated with claude code" anywhere
 
 # general info
 

@@ -2,6 +2,7 @@
   "permissions": {
     "defaultMode": "bypassPermissions"
   },
+  "model": "fable",
   "hooks": {
     "PostToolUse": [
       {
@@ -252,6 +253,5 @@
   "verbose": true,
   "preferredNotifChannel": "auto",
   "terminalProgressBarEnabled": true,
-  "inputNeededNotifEnabled": true,
-  "model": "fable"
+  "inputNeededNotifEnabled": true
 }

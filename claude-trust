@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+# Pre-accepts the folder trust dialog and external CLAUDE.md includes
+# for the current project so claude never asks on first start.
+import json, os, subprocess, sys
+
+cfg = os.path.expanduser("~/.claude.json")
+cwd = os.getcwd()
+try:
+    root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip() or cwd
+except OSError:
+    root = cwd
+
+try:
+    with open(cfg) as f:
+        data = json.load(f)
+except (OSError, ValueError):
+    sys.exit(0)
+
+projects = data.setdefault("projects", {})
+changed = False
+for path in {root, cwd}:
+    p = projects.setdefault(path, {})
+    for k in ("hasTrustDialogAccepted", "hasClaudeMdExternalIncludesApproved", "hasClaudeMdExternalIncludesWarningShown"):
+        if p.get(k) is not True:
+            p[k] = True
+            changed = True
+
+if changed:
+    tmp = cfg + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, cfg)
