@@ -24,6 +24,31 @@ if _zshrc_once fzf; then
   fi
 fi
 
+# television: fuzzy finder with channels. Loaded after fzf so it owns
+# Ctrl-R (history) and Ctrl-T (smart autocomplete); fzf keeps Alt-C.
+# Keybindings live in ~/.config/television/config.toml.
+if _zshrc_once television && command -v tv >/dev/null 2>&1; then
+  eval "$(tv init zsh)"
+
+  # Ctrl-R: keep history order (newest first) instead of ranking by match
+  # score, and drop duplicates so each command shows up once.
+  _tv_shell_history() {
+    emulate -L zsh
+    zle -I
+    _disable_bracketed_paste
+    local output
+    output=$(history -n -1 0 | awk '!seen[$0]++' \
+      | tv --no-sort --no-status-bar --inline --input "$LBUFFER")
+    zle reset-prompt
+    if [[ -n $output ]]; then
+      RBUFFER=""
+      LBUFFER=$output
+    fi
+    _enable_bracketed_paste
+  }
+  zle -N tv-shell-history _tv_shell_history
+fi
+
 # Projekt-Sessionizer (fuzzy über /stuff/programming, create-if-missing).
 # Funktioniert in tmux (switch-client) wie außerhalb (attach). Siehe ~/dotfiles/tmux-sessionizer
 # Nur noch über tmux prefix (Ctrl-a) + f — Ctrl-f-Shellbinding deaktiviert.
