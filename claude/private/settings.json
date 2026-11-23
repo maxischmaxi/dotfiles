@@ -48,6 +48,14 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /home/max/.local/lib/node_modules/billion-context/dist/claude-native-bootstrap.js"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -153,6 +161,16 @@
           }
         ]
       }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /home/max/.local/lib/node_modules/billion-context/dist/claude-subagent-hook.js"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -200,5 +218,9 @@
   "preferredNotifChannel": "auto",
   "switchModelsOnFlag": false,
   "terminalProgressBarEnabled": true,
-  "inputNeededNotifEnabled": true
+  "inputNeededNotifEnabled": true,
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:18787/bili/https://api.anthropic.com",
+    "DISABLE_AUTO_COMPACT": "1"
+  }
 }
