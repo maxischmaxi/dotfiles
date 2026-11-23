@@ -6,9 +6,11 @@ import{existsSync,readdirSync,statSync,symlinkSync,lstatSync,unlinkSync,readFile
 import{dirname,join,resolve,sep}from"node:path";
 import{homedir}from"node:os";
 try{
-  const f=resolve(homedir(),".claude","plugins","installed_plugins.json");
+  // honor CLAUDE_CONFIG_DIR so every profile heals its own cache
+  const configDir=process.env.CLAUDE_CONFIG_DIR||resolve(homedir(),".claude");
+  const f=resolve(configDir,"plugins","installed_plugins.json");
   if(!existsSync(f))process.exit(0);
-  const cacheRoot=resolve(homedir(),".claude","plugins","cache");
+  const cacheRoot=resolve(configDir,"plugins","cache");
   const ip=JSON.parse(readFileSync(f,"utf-8"));
   for(const[k,es]of Object.entries(ip.plugins||{})){
     if(k!=="context-mode@context-mode")continue;

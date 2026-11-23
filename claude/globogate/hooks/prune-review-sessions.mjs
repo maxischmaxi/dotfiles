@@ -23,7 +23,10 @@ const verbose = process.argv.includes("--verbose") || dryRun;
 const sessionRoot = resolve(
   process.env.PLAN_REVIEW_SESSION_DIR || join(homedir(), ".pi/agent/sessions"),
 );
-const stateDir = process.env.PLAN_REVIEW_STATE_DIR || join(homedir(), ".claude");
+const stateDir =
+  process.env.PLAN_REVIEW_STATE_DIR ||
+  process.env.CLAUDE_CONFIG_DIR ||
+  join(homedir(), ".claude");
 const stampFile = join(stateDir, ".prune-review-sessions-stamp");
 const logFile = join(stateDir, "logs", "prune-review-sessions.log");
 

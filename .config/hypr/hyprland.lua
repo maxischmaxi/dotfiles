@@ -260,6 +260,8 @@ hl.config({
 	misc = {
 		force_default_wallpaper = 0,
 		disable_hyprland_logo = true,
+		-- Also hides the splash text ("Join the discord server!") at the bottom.
+		disable_splash_rendering = true,
 		-- Plain black desktop, no wallpaper daemon. Needs
 		-- disable_hyprland_logo = true (set above).
 		background_color = "rgb(000000)",
@@ -964,7 +966,14 @@ local function relinkSamsung(delay, reason)
 	hl.timer(function()
 		local mon = findSamsung()
 		if gen ~= relink.gen or not mon or not mon.dpms_status then
-			relinkLog(reason .. ": skipped (superseded=" .. tostring(gen ~= relink.gen) .. ", found=" .. tostring(mon ~= nil) .. ")")
+			relinkLog(
+				reason
+					.. ": skipped (superseded="
+					.. tostring(gen ~= relink.gen)
+					.. ", found="
+					.. tostring(mon ~= nil)
+					.. ")"
+			)
 			return
 		end
 		relinkLog(reason .. ": 60Hz on " .. mon.name)

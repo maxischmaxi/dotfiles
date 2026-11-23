@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-marketplace.json",
+  "name": "token-reporter",
+  "owner": {
+    "name": "max",
+    "email": "claude+1@logic-joe.com"
+  },
+  "description": "Lokaler Marketplace fuer das Project Token Reporter Plugin.",
+  "plugins": [
+    {
+      "name": "token-reporter",
+      "source": "./plugin",
+      "description": "Meldet den Token-Verbrauch pro Projekt an eine REST-API.",
+      "version": "1.0.0",
+      "license": "MIT",
+      "keywords": ["tokens", "usage", "telemetry", "metrics"],
+      "defaultEnabled": false
+    }
+  ]
+}

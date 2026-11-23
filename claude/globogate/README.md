@@ -1,8 +1,13 @@
-# Claude Code config (~/.claude)
+# Claude Code config (~/claude/<profil>)
 
-Wird von `stow` nach `~/.claude` verlinkt. `~/.claude` bleibt dabei ein echtes
-Verzeichnis — nur die hier getrackten Dateien werden Symlinks, alles andere
-(Sessions, Plugins-Cache, Credentials, History) bleibt lokal und ungetrackt.
+Pro Auth-Profil gibt es ein eigenes Config-Verzeichnis: `claude/private` und
+`claude/globogate` werden von `stow` nach `~/claude/private` bzw.
+`~/claude/globogate` verlinkt, `claude/sounds` nach `~/claude/sounds` (von
+beiden Profilen geteilt). Gestartet wird über `max-claude` / `globo-claude`
+(`shell/40-aliases.zsh`), die `CLAUDE_CONFIG_DIR` auf das jeweilige Profil
+setzen. Die Profilverzeichnisse bleiben echte Verzeichnisse — nur die hier
+getrackten Dateien werden Symlinks, alles andere (Sessions, Plugins-Cache,
+Credentials, History) bleibt lokal und ungetrackt.
 
 ## Inhalt
 
@@ -32,24 +37,26 @@ Abhängigkeit, passiert schlicht nichts.
 | `review-plan.mjs` | `pi` CLI im PATH + Zugriff auf das in der Datei gesetzte `MODEL` |
 | `prune-review-sessions.mjs` | nichts (räumt `~/.pi/agent/sessions` auf) |
 | PostToolUse-Formatter | `npx` / `prettier`, greift nur in Repos mit `.prettierrc*` bzw. `prettier.config.*` |
-| Stop-Sound | `mpg123` |
+| `notify-sound.sh` (Stop, Rückfrage, Berechtigung) | `pw-play` (pipewire), `jq` |
 
 ## Setup auf einer neuen Maschine
 
 ```bash
-mkdir -p ~/.claude
+mkdir -p ~/claude/private ~/claude/globogate
 cd ~/dotfiles && stow .
 ```
 
-`~/.claude` vorher anzulegen ist wichtig: existiert das Verzeichnis nicht,
-verlinkt stow es als Ganzes und alle Laufzeitdaten von Claude Code landen
+Die Profilverzeichnisse vorher anzulegen ist wichtig: existieren sie nicht,
+verlinkt stow sie als Ganzes und alle Laufzeitdaten von Claude Code landen
 danach im Repo. Aus demselben Grund steht `--no-folding` in der `.stowrc`.
 
 ## Fallstricke
 
-**Pfade in `settings.json`.** Hook-Commands laufen über die Shell, deshalb
-stehen dort `$HOME/...` statt absoluter Pfade. Wer den Pfad ändert, muss das
-Quoting mitziehen.
+**Pfade in `settings.json`.** Hook-Commands laufen über die Shell und beginnen
+mit `"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/..."`, damit dieselbe Datei in
+jedem Profil funktioniert. Niemals `$HOME/.claude/...` fest verdrahten. Die
+Hook-Skripte selbst lesen ebenfalls `CLAUDE_CONFIG_DIR` (Fallback `~/.claude`),
+genauso `claude-trust` für die `.claude.json`.
 
 **Claude Code schreibt selbst in `settings.json`** (Theme, Effort-Level,
 `enabledPlugins`, Marketplaces). Solange die Datei über den Symlink geschrieben
@@ -58,12 +65,12 @@ atomar schreibt (temp + rename), wird der Symlink dabei durch eine echte Datei
 ersetzt und das Repo läuft still leer. Prüfen mit:
 
 ```bash
-ls -l ~/.claude/settings.json
+ls -l ~/claude/*/settings.json
 ```
 
 Zeigt das keinen Symlink mehr, Datei zurück ins Repo kopieren und neu stowen.
 
-**Nicht getrackt und niemals einchecken:** `.credentials.json`, `~/.claude.json`,
+**Nicht getrackt und niemals einchecken:** `.credentials.json`, `.claude.json`,
 `history.jsonl`, `projects/` (inkl. Memory), `sessions/`, `security/`, `plans/`,
 `tasks/`, `file-history/`, `shell-snapshots/`, `context-mode/`, `plugins/`,
 `logs/`. Das Repo ist public.
