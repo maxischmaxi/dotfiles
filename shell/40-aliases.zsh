@@ -24,6 +24,9 @@ function claude {
 function globo-claude {
     CLAUDE_CONFIG_DIR="$HOME/claude/globogate" claude "$@"
 }
+function gclaude {
+    CLAUDE_CONFIG_DIR="$HOME/claude/globogate" claude "$@"
+}
 
 function max-claude {
     CLAUDE_CONFIG_DIR="$HOME/claude/private" claude "$@"

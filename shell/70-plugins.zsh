@@ -25,28 +25,12 @@ if _zshrc_once fzf; then
 fi
 
 # television: fuzzy finder with channels. Loaded after fzf so it owns
-# Ctrl-R (history) and Ctrl-T (smart autocomplete); fzf keeps Alt-C.
+# Ctrl-T (smart autocomplete); fzf keeps Ctrl-R (history) and Alt-C.
 # Keybindings live in ~/.config/television/config.toml.
 if _zshrc_once television && command -v tv >/dev/null 2>&1; then
   eval "$(tv init zsh)"
-
-  # Ctrl-R: keep history order (newest first) instead of ranking by match
-  # score, and drop duplicates so each command shows up once.
-  _tv_shell_history() {
-    emulate -L zsh
-    zle -I
-    _disable_bracketed_paste
-    local output
-    output=$(history -n -1 0 | awk '!seen[$0]++' \
-      | tv --no-sort --no-status-bar --inline --input "$LBUFFER")
-    zle reset-prompt
-    if [[ -n $output ]]; then
-      RBUFFER=""
-      LBUFFER=$output
-    fi
-    _enable_bracketed_paste
-  }
-  zle -N tv-shell-history _tv_shell_history
+  # tv init grabs Ctrl-R, hand it back to fzf
+  (( $+widgets[fzf-history-widget] )) && bindkey '^R' fzf-history-widget
 fi
 
 # Projekt-Sessionizer (fuzzy über /stuff/programming, create-if-missing).
