@@ -1,8 +1,12 @@
 {
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:18787/bili/https://api.anthropic.com",
+    "DISABLE_AUTO_COMPACT": "1"
+  },
   "permissions": {
     "defaultMode": "bypassPermissions"
   },
-  "model": "fable",
+  "model": "opus",
   "hooks": {
     "PostToolUse": [
       {
@@ -218,9 +222,5 @@
   "preferredNotifChannel": "auto",
   "switchModelsOnFlag": false,
   "terminalProgressBarEnabled": true,
-  "inputNeededNotifEnabled": true,
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:18787/bili/https://api.anthropic.com",
-    "DISABLE_AUTO_COMPACT": "1"
-  }
+  "inputNeededNotifEnabled": true
 }

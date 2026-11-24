@@ -13,7 +13,7 @@
 # general info
 
 - we're using arch/hyprland keep in mind that if you control windows like chrome etc that we have a tiling window manager and windows might be very small due to that
-- chrome-devtools mcp: the browser starts with an empty about:blank page that is already selected. load the first url with `navigate_page` on that page instead of `new_page`. only use `new_page` when you really need an additional tab.
+- chrome-devtools mcp: it attaches to my real running chrome (remote debugging port 9222) with all my open tabs and logins. always call `list_pages` first and select the matching tab. open new urls with `new_page` and never `navigate_page` over an existing tab unless that tab is the one you're supposed to work on. if `list_pages` fails, chrome is probably running without the debug port (`ss -ltnp | grep 9222`).
 
 # Tailwind CSS
 
